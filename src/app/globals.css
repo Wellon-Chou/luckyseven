@@ -8,8 +8,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +26,94 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Auto-numbered report sections (01, 02, …) */
+main {
+  counter-reset: section;
+}
+.section-card {
+  counter-increment: section;
+}
+.section-index::before {
+  content: counter(section, decimal-leading-zero);
+}
+
+div .title-container {
+  display: flex;
+  stroke: black;
+}
+
+.title {
+  font-size: 2.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0;
+  background: linear-gradient(90deg, #b45309 0%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Print / PDF (Ctrl+P) ──────────────────────────────────────────────── */
+@media print {
+  @page {
+    margin: 1.2cm;
+  }
+
+  /* Keep colours, backgrounds and gradients in the exported PDF */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Clean white page; drop the floating nav and the full-page gradient */
+  body {
+    background: #fff !important;
+  }
+  .bg-gradient-to-b {
+    background: #fff !important;
+    background-image: none !important;
+  }
+  nav {
+    display: none !important;
+  }
+
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  /* Each report section starts on a new page (first one stays with the header) */
+  [id^="sec-"] {
+    break-before: page;
+  }
+  [id^="sec-"]:first-of-type {
+    break-before: auto;
+  }
+  /* Keep the chart on the same page as the input section */
+  #sec-chart {
+    break-before: auto;
+  }
+
+  /* One sub-section card per row */
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Keep cards / list items whole across page breaks */
+  .grid > *,
+  li {
+    break-inside: avoid;
+  }
+
+  /* Flatten heavy shadows/rings so cards print cleanly */
+  .section-card {
+    box-shadow: none !important;
+  }
 }
