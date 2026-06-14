@@ -44,7 +44,8 @@ export function DirectionCompass({
 
   const renderNode = (name: string, x: number, y: number) => {
     const value = values[name];
-    const cat = catForValue(value);
+    // The center (中) is never treated as a pick, even if it's 6/7/9.
+    const cat = name === "中" ? undefined : catForValue(value);
     const on = !!cat;
     return (
       <g key={name}>

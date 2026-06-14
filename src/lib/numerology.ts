@@ -186,7 +186,7 @@ export function computeChart(birthDate: string): Chart {
 
   // 6 - 财富方向，7 - 幸运方向，9 - 成功方向
   const summarizeDir = (target: number): DirectionSummary => {
-    const matched = directionList.filter((d) => d.value === target);
+    const matched = directionList.filter((d) => (d.value === target && d.name !== "中"));
     return { count: matched.length, directions: matched.map((d) => d.name) };
   };
   const countDirections = {
