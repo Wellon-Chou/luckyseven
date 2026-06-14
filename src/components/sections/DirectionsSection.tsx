@@ -4,7 +4,7 @@ import { DirectionCompass } from "../DirectionCompass";
 import { type Chart } from "../../lib/numerology";
 
 export function DirectionsSection({ birthDate, chart }: { birthDate: string; chart: Chart }) {
-  const { countDirections } = chart;
+  const { countDirections, directionValues } = chart;
   const cards = [
     { label: "财富方向", number: 6, color: "#d97706", data: countDirections.wealth },
     { label: "幸运方向", number: 7, color: "#16a34a", data: countDirections.luck },
@@ -15,7 +15,7 @@ export function DirectionsSection({ birthDate, chart }: { birthDate: string; cha
       {birthDate ? (
         <div className="mt-4 flex flex-col gap-6 lg:flex-row print:flex-row">
           <div className="flex justify-center lg:w-1/3 lg:shrink-0 lg:justify-start print:w-1/3 print:shrink-0 print:justify-start">
-            <DirectionCompass data={countDirections} />
+            <DirectionCompass values={directionValues} />
           </div>
           <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
             {cards.map(({ label, number, color, data }) => (

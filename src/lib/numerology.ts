@@ -4,6 +4,7 @@
 // (e.g. 89 -> 17 -> 8, 19 -> 10 -> 1)
 export function reduceToSingle(n: number): number {
   if (Number.isNaN(n)) return NaN;
+  if (n === 0) return 5; // 0 / "00" (e.g. year 2000) maps to 5
   while (n >= 10) {
     let sum = 0;
     while (n > 0) {
@@ -37,6 +38,7 @@ export type Chart = {
   countHealth: Record<string, number>;
   careerElement: string;
   countDirections: Record<"wealth" | "luck" | "success", DirectionSummary>;
+  directionValues: Record<string, number>; // every direction's reduced value (中, 北, …)
 };
 
 // Compute every derived value from a "YYYY-MM-DD" birth date string.
@@ -148,7 +150,9 @@ export function computeChart(birthDate: string): Chart {
       })()
     : "";
 
-  const countDirections = birthDate
+  // Every direction's reduced value (computed in order — east/west depend on the
+  // diagonal values). NaN when there's no birth date yet.
+  const directionList = birthDate
     ? (() => {
         const center = reduceToSingle(reducedBirthDate[1] + reducedBirthDate[2] + middle[0] + middle[1]);
         const north = reduceToSingle(reducedBirthDate[1] + reducedBirthDate[2]);
@@ -159,9 +163,7 @@ export function computeChart(birthDate: string): Chart {
         const northwest = reduceToSingle(reducedBirthDate[0] + reducedBirthDate[1] + middle[0]);
         const southwest = reduceToSingle(reducedBirthDate[0] + middle[0] + rootNumber);
         const west = reduceToSingle(northwest + southwest);
-
-        // 6 - 财富方向，7 - 幸运方向，9 - 成功方向
-        const directions = [
+        return [
           { name: "中", value: center },
           { name: "北", value: north },
           { name: "南", value: south },
@@ -172,21 +174,26 @@ export function computeChart(birthDate: string): Chart {
           { name: "西南", value: southwest },
           { name: "西", value: west },
         ];
-        const summarize = (target: number): DirectionSummary => {
-          const matched = directions.filter((d) => d.value === target);
-          return { count: matched.length, directions: matched.map((d) => d.name) };
-        };
-        return {
-          wealth: summarize(6), // 财富方向
-          luck: summarize(7), // 幸运方向
-          success: summarize(9), // 成功方向
-        };
       })()
-    : {
-        wealth: { count: 0, directions: [] as string[] },
-        luck: { count: 0, directions: [] as string[] },
-        success: { count: 0, directions: [] as string[] },
-      };
+    : ["中", "北", "南", "东北", "东南", "东", "西北", "西南", "西"].map((name) => ({
+        name,
+        value: NaN,
+      }));
+
+  const directionValues: Record<string, number> = Object.fromEntries(
+    directionList.map((d) => [d.name, d.value]),
+  );
+
+  // 6 - 财富方向，7 - 幸运方向，9 - 成功方向
+  const summarizeDir = (target: number): DirectionSummary => {
+    const matched = directionList.filter((d) => d.value === target);
+    return { count: matched.length, directions: matched.map((d) => d.name) };
+  };
+  const countDirections = {
+    wealth: summarizeDir(6),
+    luck: summarizeDir(7),
+    success: summarizeDir(9),
+  };
 
   return {
     numbers,
@@ -205,5 +212,6 @@ export function computeChart(birthDate: string): Chart {
     countHealth,
     careerElement,
     countDirections,
+    directionValues,
   };
 }

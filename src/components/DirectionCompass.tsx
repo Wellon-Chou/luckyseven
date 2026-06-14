@@ -1,5 +1,4 @@
 import { DIRECTION_CATEGORIES } from "../lib/content";
-import { type DirectionSummary } from "../lib/numerology";
 
 // 8 compass directions with their angle (clockwise from north).
 const COMPASS_DIRS = [
@@ -13,11 +12,12 @@ const COMPASS_DIRS = [
   { name: "西北", deg: 315 },
 ];
 
-// Circular compass that highlights directions mentioned in the cards, colour-coded by category.
+// Circular compass that shows every direction's value and highlights the ones
+// picked (6 财富 / 7 幸运 / 9 成功), colour-coded by category.
 export function DirectionCompass({
-  data,
+  values,
 }: {
-  data: Record<"wealth" | "luck" | "success", DirectionSummary>;
+  values: Record<string, number>;
 }) {
   const cx = 125;
   const cy = 125;
@@ -25,8 +25,14 @@ export function DirectionCompass({
     const rad = (deg * Math.PI) / 180;
     return [cx + r * Math.sin(rad), cy - r * Math.cos(rad)];
   };
-  const catsFor = (name: string) =>
-    DIRECTION_CATEGORIES.filter((c) => data[c.key].directions.includes(name));
+  // A direction's value matches at most one category: 6 → 财富, 7 → 幸运, 9 → 成功.
+  const catForValue = (value: number) =>
+    DIRECTION_CATEGORIES.find(
+      (c) =>
+        (c.key === "wealth" && value === 6) ||
+        (c.key === "luck" && value === 7) ||
+        (c.key === "success" && value === 9),
+    );
 
   // Compass-rose star: long cardinal points, short diagonal points.
   const star: [number, number][] = [];
@@ -37,41 +43,41 @@ export function DirectionCompass({
   const starPoints = star.map((p) => p.join(",")).join(" ");
 
   const renderNode = (name: string, x: number, y: number) => {
-    const cats = catsFor(name);
-    const on = cats.length > 0;
+    const value = values[name];
+    const cat = catForValue(value);
+    const on = !!cat;
     return (
       <g key={name}>
         <circle
           cx={x}
           cy={y}
-          r={18}
-          fill={on ? "#fde68a" : "#ffffff"}
-          stroke={on ? "#d97706" : "#e7d9c0"}
+          r={20}
+          fill={on ? "#fef3c7" : "#ffffff"}
+          stroke={on ? cat!.color : "#e7d9c0"}
           strokeWidth={on ? 2.5 : 1.5}
         />
+        {/* direction name (small, top) */}
         <text
           x={x}
-          y={on ? y - 1 : y + 4}
+          y={y - 4}
           textAnchor="middle"
-          fontSize={name.length > 1 ? 11 : 14}
-          fontWeight="700"
+          fontSize="9"
+          fontWeight="600"
           fill={on ? "#7c2d12" : "#a8a29e"}
         >
           {name}
         </text>
-        {on && (
-          <g>
-            {cats.map((c, i) => (
-              <circle
-                key={c.key}
-                cx={x + (i - (cats.length - 1) / 2) * 7}
-                cy={y + 9}
-                r={2.6}
-                fill={c.color}
-              />
-            ))}
-          </g>
-        )}
+        {/* the computed value (larger, bottom) — coloured if it's a pick */}
+        <text
+          x={x}
+          y={y + 11}
+          textAnchor="middle"
+          fontSize="14"
+          fontWeight="700"
+          fill={on ? cat!.color : "#a8a29e"}
+        >
+          {Number.isNaN(value) ? "–" : value}
+        </text>
       </g>
     );
   };
