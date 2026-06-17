@@ -1,25 +1,45 @@
 'use client';
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-// Sticky table-of-contents for jumping between report sections (desktop only).
-const NAV_ITEMS = [
-  { id: "sec-input", label: "核心资料" },
-  { id: "sec-chart", label: "个人蓝图" },
-  { id: "sec-summary", label: "总体故事" },
-  { id: "sec-story", label: "数字故事" },
-  { id: "sec-hidden", label: "隐藏性格" },
-  { id: "sec-ability", label: "能力分布" },
-  { id: "sec-health", label: "健康关系" },
-  { id: "sec-career", label: "事业选择" },
-  { id: "sec-directions", label: "最好方向" },
-  { id: "sec-extra1", label: "八大行星" },
-  { id: "sec-elements", label: "五行" },
+// Pages (top-level nav) and the in-page section anchors for each.
+const PAGES = [
+  {
+    href: "/",
+    label: "个人蓝图",
+    sections: [
+      { id: "sec-input", label: "核心资料" },
+      { id: "sec-chart", label: "个人蓝图" },
+      { id: "sec-summary", label: "总体故事" },
+      { id: "sec-story", label: "数字故事" },
+      { id: "sec-hidden", label: "隐藏性格" },
+      { id: "sec-ability", label: "能力分布" },
+      { id: "sec-health", label: "健康关系" },
+      { id: "sec-career", label: "事业选择" },
+      { id: "sec-directions", label: "最好方向" },
+    ],
+  },
+  {
+    href: "/planets",
+    label: "八大行星",
+    sections: [
+      { id: "sec-input", label: "核心资料" },
+      { id: "sec-planets-life", label: "人生蓝图八大行星" },
+      { id: "sec-planets-ic", label: "身份证八大行星" },
+      { id: "sec-planets-phone", label: "电话号码八大行星" },
+      { id: "sec-planets-total", label: "总数八大行星" },
+      { id: "sec-elements", label: "五行" },
+    ],
+  },
 ];
 
 export function SectionNav() {
   const [open, setOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
+  const pathname = usePathname();
+  const active = PAGES.find((p) => p.href === pathname) ?? PAGES[0];
 
   // Collapse when clicking outside the nav — but not when dragging (e.g. text
   // selection), detected by how far the pointer moved between press and release.
@@ -49,9 +69,26 @@ export function SectionNav() {
     <nav ref={navRef} className="fixed left-0 top-24 z-40">
       {open ? (
         <div className="ml-2 max-h-[80vh] w-44 overflow-y-auto rounded-xl border border-amber-200/70 bg-white/85 p-3 shadow-lg ring-1 ring-amber-100/50 backdrop-blur">
+          {/* Page links */}
+          <div className="mb-3 space-y-1">
+            {PAGES.map((p) => (
+              <Link
+                key={p.href}
+                href={p.href}
+                className={`block rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  p.href === active.href
+                    ? "bg-amber-500 text-white shadow-sm"
+                    : "text-amber-800 hover:bg-amber-100 hover:text-amber-900"
+                }`}
+              >
+                {p.label}
+              </Link>
+            ))}
+          </div>
+
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">
-              目录
+              本页目录
             </span>
             <button
               type="button"
@@ -64,7 +101,7 @@ export function SectionNav() {
             </button>
           </div>
           <ul className="space-y-1 border-l-2 border-amber-200 pl-3">
-            {NAV_ITEMS.map((item, i) => (
+            {active.sections.map((item, i) => (
               <li key={item.id}>
                 <a
                   href={`#${item.id}`}
