@@ -1,10 +1,10 @@
 import { Section, EmptyHint } from "../Section";
-import { icToNumber, adjacentPairs, blueprintNumbers, type Chart } from "../../lib/numerology";
-import { pairToPlanet, PLANETS_ORDER } from "../../lib/planets";
+import { adjacentPairs, healthNumbers, reduceToSingle, type Chart } from "../../lib/numerology";
+import { pairToElement, ELEMENTS_ORDER } from "../../lib/elements";
 
-// One source table: column "数字" = a list of 2-digit numbers, column "行星" =
-// the planet each number maps to.
-function PairTable({
+// One source table: column "数字" = a list of 2-digit numbers, column "五行" =
+// the element each number maps to (reduceToSingle → digit → element).
+function ElementTable({
   title,
   note,
   rows,
@@ -23,15 +23,15 @@ function PairTable({
         <thead>
           <tr className="border-b border-amber-200 text-left text-zinc-500">
             <th className="pb-2 font-medium">数字</th>
-            <th className="pb-2 text-right font-medium">行星</th>
+            <th className="pb-2 text-right font-medium">五行</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((pair, i) => (
+          {rows.map((num, i) => (
             <tr key={i} className="border-b border-amber-100/70">
-              <td className="py-1.5 font-mono tabular-nums text-zinc-700">{pair}</td>
+              <td className="py-1.5 font-mono tabular-nums text-zinc-700">{num}</td>
               <td className="py-1.5 text-right font-medium text-amber-800">
-                {pairToPlanet(pair)}
+                {pairToElement(num)}
               </td>
             </tr>
           ))}
@@ -48,26 +48,26 @@ function PairTable({
   );
 }
 
-// Right-hand table: how many times each of the eight planets appears across all
-// three source tables (the 数字 → 行星 mappings), plus a grand total.
-function CumulativeTable({ counts }: { counts: Record<string, number> }) {
-  const grand = PLANETS_ORDER.reduce((sum, p) => sum + (counts[p] ?? 0), 0);
+// Right-hand table: how many times each of the five elements appears across both
+// source tables, plus a grand total.
+function ElementCountTable({ counts }: { counts: Record<string, number> }) {
+  const grand = ELEMENTS_ORDER.reduce((sum, e) => sum + (counts[e] ?? 0), 0);
   return (
     <div className="subcard rounded-xl border border-amber-400 bg-amber-50 p-4 ring-1 ring-amber-200">
       <h3 className="mb-3 text-base font-semibold text-amber-900">总数</h3>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-amber-200 text-left text-zinc-500">
-            <th className="pb-2 font-medium">行星</th>
+            <th className="pb-2 font-medium">五行</th>
             <th className="pb-2 text-right font-medium">总数</th>
           </tr>
         </thead>
         <tbody>
-          {PLANETS_ORDER.map((planet) => {
-            const count = counts[planet] ?? 0;
+          {ELEMENTS_ORDER.map((element) => {
+            const count = counts[element] ?? 0;
             return (
-              <tr key={planet} className="border-b border-amber-100/70">
-                <td className="py-1.5 font-medium text-amber-800">{planet}</td>
+              <tr key={element} className="border-b border-amber-100/70">
+                <td className="py-1.5 font-medium text-amber-800">{element}</td>
                 <td
                   className={`py-1.5 text-right font-semibold tabular-nums ${
                     count === 0 ? "text-zinc-400" : "text-amber-800"
@@ -88,55 +88,47 @@ function CumulativeTable({ counts }: { counts: Record<string, number> }) {
   );
 }
 
-export function PlanetsSection({
+export function FiveElementsSection({
   birthDate,
-  ic,
   phone,
   chart,
 }: {
   birthDate: string;
-  ic: string;
   phone: string;
   chart: Chart;
 }) {
-  // IC like "S1234567A" → "19123456701", shown beside the 身份证 table title.
-  const icNumber = icToNumber(ic);
-
-  // 人生蓝图 = the numbers shown in the 数字故事 section (root number + the unique
-  // story numbers, two single-digit ones expanded — see blueprintNumbers).
+  // Two source tables:
+  //   • 健康     → the numbers from the 健康关系 section.
+  //   • 电话号码 → each adjacent digit pair of the phone, reduced to a single
+  //               digit (the "added" number) via reduceToSingle.
+  const phoneRows = adjacentPairs(phone).map((p) => String(reduceToSingle(Number(p))));
   const sources = [
-    { title: "人生蓝图", rows: blueprintNumbers(chart), note: undefined as string | undefined },
-    { title: "身份证", rows: adjacentPairs(icNumber), note: icNumber || undefined },
-    { title: "手机号码", rows: adjacentPairs(phone), note: phone.trim() || undefined },
+    { title: "健康", rows: healthNumbers(chart), note: undefined as string | undefined },
+    { title: "电话号码", rows: phoneRows, note: phone.trim() || undefined },
   ];
-  // Tally every number's planet across all three source tables.
-  const planetCounts: Record<string, number> = Object.fromEntries(
-    PLANETS_ORDER.map((p) => [p, 0]),
+
+  // Tally every number's element across both source tables.
+  const elementCounts: Record<string, number> = Object.fromEntries(
+    ELEMENTS_ORDER.map((e) => [e, 0]),
   );
   for (const s of sources) {
-    for (const num of s.rows) {
-      const planet = pairToPlanet(num);
-      if (planet) planetCounts[planet] += 1;
-    }
+    for (const num of s.rows) elementCounts[pairToElement(num)] += 1;
   }
 
   return (
-    <Section title="八大行星">
+    <Section title="五行">
       {birthDate ? (
         <div className="mt-4 grid gap-6 lg:grid-cols-2">
-          {/* Left column: three stacked source tables (makes the column tall). */}
+          {/* Left column: two stacked source tables. */}
           <div className="space-y-6">
             {sources.map((s) => (
-              <PairTable key={s.title} title={s.title} note={s.note} rows={s.rows} />
+              <ElementTable key={s.title} title={s.title} note={s.note} rows={s.rows} />
             ))}
           </div>
 
-          {/* Right column: cumulative table. `self-start` keeps it content-height
-              so it can travel inside the tall grid track; `lg:sticky` pins it
-              (roughly centred via top = 50vh − half its height) until the section
-              ends. Unstuck on mobile (single column) and in print. */}
+          {/* Right column: element tally, sticky-centred until the section ends. */}
           <div className="self-start lg:sticky lg:top-[calc(50vh-7rem)] print:static">
-            <CumulativeTable counts={planetCounts} />
+            <ElementCountTable counts={elementCounts} />
           </div>
         </div>
       ) : (

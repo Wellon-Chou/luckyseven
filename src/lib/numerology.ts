@@ -19,6 +19,15 @@ export function reduceToSingle(n: number): number {
 // Chart values are numeric; show "–" until a date produces real numbers.
 export const show = (n: number): number | string => (Number.isNaN(n) ? "–" : n);
 
+// Adjacent 2-digit combinations of a number string (sliding window, step 1).
+// Non-digits are stripped first. "19123456701" → ["19","91","12",…,"01"] (n-1).
+export function adjacentPairs(raw: string): string[] {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  const pairs: string[] = [];
+  for (let i = 0; i + 1 < digits.length; i++) pairs.push(digits.slice(i, i + 2));
+  return pairs;
+}
+
 // Convert an IC like "S1234567A" into an 11-digit string by replacing the
 // leading and trailing letters with their 2-digit alphabet position
 // (A → 01, S → 19, Z → 26); digits in between are kept as-is.
@@ -229,4 +238,27 @@ export function computeChart(birthDate: string): Chart {
     countDirections,
     directionValues,
   };
+}
+
+// The numbers shown in the 数字故事 section: the root number + the unique story
+// numbers, with the two single-digit ones expanded to 2 digits:
+//   • rootNumber  →  rootNumber + middle[0]
+//   • middle[1]   →  middle[1]  + middle[1]   (the only single-digit story entry)
+// Returns [] until a birth date produces real numbers.
+export function blueprintNumbers(chart: Chart): string[] {
+  const { rootNumber, middle, uniqueStoryNumbers } = chart;
+  if (Number.isNaN(rootNumber)) return [];
+  return [
+    `${rootNumber}${middle[0]}`,
+    ...uniqueStoryNumbers.map((n) => (n.length === 1 ? `${n}${n}` : n)),
+  ];
+}
+
+// The numbers behind the 健康关系 section (the same ones countHealth tallies):
+// the two middle numbers, the root number, and the two below-baseline numbers.
+// Returns [] until a birth date produces real numbers.
+export function healthNumbers(chart: Chart): string[] {
+  const { middle, rootNumber, belowLeft, belowRight } = chart;
+  if (Number.isNaN(rootNumber)) return [];
+  return [...middle, rootNumber, belowLeft, belowRight].map(String);
 }

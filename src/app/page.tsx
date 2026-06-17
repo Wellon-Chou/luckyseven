@@ -15,6 +15,7 @@ import { CareerSection } from "../components/sections/CareerSection";
 import { DirectionsSection } from "../components/sections/DirectionsSection";
 import { PlaceholderSection } from "../components/sections/PlaceholderSection";
 import { PlanetsSection } from "../components/sections/PlanetsSection";
+import { FiveElementsSection } from "../components/sections/FiveElementsSection";
 import './globals.css'
 
 export default function Home() {
@@ -69,6 +70,9 @@ export default function Home() {
         </div>
         <div id="sec-extra1" className="w-full scroll-mt-24">
           <PlanetsSection birthDate={birthDate} ic={ic} phone={phone} chart={chart} />
+        </div>
+        <div id="sec-elements" className="w-full scroll-mt-24">
+          <FiveElementsSection birthDate={birthDate} phone={phone} chart={chart} />
         </div>
       </main>
     </div>

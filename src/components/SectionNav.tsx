@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { id: "sec-career", label: "事业选择" },
   { id: "sec-directions", label: "最好方向" },
   { id: "sec-extra1", label: "八大行星" },
+  { id: "sec-elements", label: "五行" },
 ];
 
 export function SectionNav() {
