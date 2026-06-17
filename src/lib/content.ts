@@ -173,13 +173,21 @@ export type StorySource = { title: string; lines: string[] };
 export function collectStorySources(chart: Chart): StorySource[] {
   const tidy = (lines: string[]) => lines.map((l) => l.trim()).filter(Boolean);
 
-  // 数字故事 — root number line + each unique story-number line.
+  // 数字故事 — root number line + each story-number line. Duplicate story
+  // numbers aren't repeated as text, but their occurrence count is annotated so
+  // the AI can emphasise stronger (more frequent) traits.
   const story: string[] = [];
   const rootLine = getRootLine(chart.rootNumber);
   if (rootLine) story.push(`根数 ${chart.rootNumber}：${rootLine}`);
+  const storyCounts = new Map<string, number>();
+  for (const n of chart.storyNumbers) storyCounts.set(n, (storyCounts.get(n) ?? 0) + 1);
   for (const num of chart.uniqueStoryNumbers) {
     const line = getStoryLine(num);
-    if (line) story.push(`${num}：${line}`);
+    if (!line) continue;
+    const count = storyCounts.get(num) ?? 1;
+    story.push(
+      count > 1 ? `${num}（出现 ${count} 次，性格更突出）：${line}` : `${num}：${line}`,
+    );
   }
 
   // 隐藏性格 — five slots over the hidden numbers (matches HiddenCharacterSection).
