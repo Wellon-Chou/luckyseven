@@ -56,7 +56,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     if (!supabase) return { error: "认证服务尚未配置。", needsConfirmation: false };
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // Send the confirmation link back to the page the user signed up on — works
+    // for both localhost and the deployed site (incl. the basePath). This URL
+    // must be allow-listed in Supabase → Auth → URL Configuration → Redirect URLs.
+    const emailRedirectTo =
+      typeof window !== "undefined"
+        ? `${window.location.origin}${window.location.pathname}`
+        : undefined;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo },
+    });
     if (error) return { error: error.message, needsConfirmation: false };
     // When email confirmation is enabled, sign-up returns no session — the user
     // must click the confirmation link before they can log in.
