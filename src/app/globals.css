@@ -15,6 +15,19 @@
   --chart-shadow: #fde68a; /* soft cast shadow polygon */
   --chart-flood: #b45309; /* drop-shadow flood colour */
 
+  /* Direction compass (最好方向) colours — overridden in dark mode below. */
+  --compass-dial: #fffdf7; /* dial face */
+  --compass-ring: #e7c98f; /* outer ring */
+  --compass-ring-soft: #f3e3c0; /* inner ring */
+  --compass-tick: #d6a868; /* tick marks */
+  --compass-rose: #fef3c7; /* compass-rose star fill */
+  --compass-rose-edge: #e0a73d; /* compass-rose star edge */
+  --compass-node: #ffffff; /* direction node fill */
+  --compass-node-edge: #e7d9c0; /* direction node border */
+  --compass-node-on: #fef3c7; /* fill of a picked node */
+  --compass-text: #a8a29e; /* muted node label / value */
+  --compass-text-on: #7c2d12; /* name on a picked node */
+
   /* Elevation for the sub-cards inside each section. */
   --subcard-shadow: 0 1px 2px rgba(120, 53, 15, 0.06), 0 6px 16px -6px rgba(120, 53, 15, 0.14);
   --subcard-shadow-hover: 0 2px 4px rgba(120, 53, 15, 0.1), 0 14px 26px -8px rgba(120, 53, 15, 0.22);
@@ -85,6 +98,19 @@ html.dark {
   --chart-fill-3: #56489c;
   --chart-shadow: #2c2358;
   --chart-flood: #6a55b0;
+
+  /* Direction compass → purple dial with lavender rings/ticks. */
+  --compass-dial: #221a40;
+  --compass-ring: #6a5ca5;
+  --compass-ring-soft: #4d3f82;
+  --compass-tick: #8b7bc0;
+  --compass-rose: #2f2657;
+  --compass-rose-edge: #9a7cff;
+  --compass-node: #2a2150;
+  --compass-node-edge: #574a8c;
+  --compass-node-on: #3a3070;
+  --compass-text: #aaa3c1;
+  --compass-text-on: #f1ebff;
 
   /* Darker, stronger elevation + a faint top highlight so cards lift off the bg */
   --subcard-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0, 0, 0, 0.35), 0 10px 22px -8px rgba(0, 0, 0, 0.6);

@@ -53,9 +53,11 @@ export function DirectionCompass({
           cx={x}
           cy={y}
           r={20}
-          fill={on ? "#fef3c7" : "#ffffff"}
-          stroke={on ? cat!.color : "#e7d9c0"}
           strokeWidth={on ? 2.5 : 1.5}
+          style={{
+            fill: on ? "var(--compass-node-on)" : "var(--compass-node)",
+            stroke: on ? cat!.color : "var(--compass-node-edge)",
+          }}
         />
         {/* direction name (small, top) */}
         <text
@@ -64,7 +66,7 @@ export function DirectionCompass({
           textAnchor="middle"
           fontSize="9"
           fontWeight="600"
-          fill={on ? "#7c2d12" : "#a8a29e"}
+          style={{ fill: on ? "var(--compass-text-on)" : "var(--compass-text)" }}
         >
           {name}
         </text>
@@ -75,7 +77,7 @@ export function DirectionCompass({
           textAnchor="middle"
           fontSize="14"
           fontWeight="700"
-          fill={on ? cat!.color : "#a8a29e"}
+          style={{ fill: on ? cat!.color : "var(--compass-text)" }}
         >
           {Number.isNaN(value) ? "–" : value}
         </text>
@@ -87,8 +89,8 @@ export function DirectionCompass({
     <div className="flex flex-col items-center">
       <svg viewBox="0 0 250 250" className="w-full max-w-[230px]">
         {/* dial rings */}
-        <circle cx={cx} cy={cy} r={118} fill="#fffdf7" stroke="#e7c98f" strokeWidth={2} />
-        <circle cx={cx} cy={cy} r={113} fill="none" stroke="#f3e3c0" strokeWidth={1} />
+        <circle cx={cx} cy={cy} r={118} strokeWidth={2} style={{ fill: "var(--compass-dial)", stroke: "var(--compass-ring)" }} />
+        <circle cx={cx} cy={cy} r={113} fill="none" strokeWidth={1} style={{ stroke: "var(--compass-ring-soft)" }} />
 
         {/* tick marks */}
         {Array.from({ length: 16 }).map((_, i) => {
@@ -97,12 +99,12 @@ export function DirectionCompass({
           const [x1, y1] = pos(deg, 112);
           const [x2, y2] = pos(deg, long ? 102 : 106);
           return (
-            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#d6a868" strokeWidth={long ? 1.6 : 1} />
+            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth={long ? 1.6 : 1} style={{ stroke: "var(--compass-tick)" }} />
           );
         })}
 
         {/* compass rose */}
-        <polygon points={starPoints} fill="#fef3c7" stroke="#e0a73d" strokeWidth={0.8} opacity={0.9} />
+        <polygon points={starPoints} strokeWidth={0.8} opacity={0.9} style={{ fill: "var(--compass-rose)", stroke: "var(--compass-rose-edge)" }} />
         {/* red north point */}
         <polygon
           points={`${pos(0, 60).join(",")} ${pos(337.5, 16).join(",")} ${pos(22.5, 16).join(",")}`}
