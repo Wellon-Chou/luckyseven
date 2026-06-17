@@ -1,13 +1,45 @@
-// Content lookups over lines.json + display metadata for the report sections.
-import lines from "../data/lines.json";
-// import sheet from "../data/sheet.json";
+import sheet from "../data/sheet.json";
 
-const storylines = lines.story as Record<string, string | string[]>;
-const rootLines = lines.root as Record<string, string | string[]>;
-const characteristicsLines = lines.characteristics as Record<string, Record<string, string | string[]>>;
-const majorminorLines = lines.majorminor as Record<string, Record<string, string | string[]>>;
-const healthLines = lines.health as Record<string, string | string[]>;
-const careerLines = lines.career as Record<string, string | string[]>;
+// number/element -> line, from a flat [{number|element, line|body|careers}] array.
+function byKey<T extends Record<string, string>>(
+  rows: T[],
+  keyField: keyof T,
+  valueField: keyof T,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const row of rows) out[row[keyField]] = row[valueField];
+  return out;
+}
+
+// Type -> (number -> line), grouping a [{Type, Number, Line}] array. The Type
+// is lower-cased and mapped onto the keys the sections already use.
+function byTypeNumber<T extends { Type: string; Number: string; Line: string }>(
+  rows: T[],
+  typeMap: Record<string, string>,
+): Record<string, Record<string, string>> {
+  const out: Record<string, Record<string, string>> = {};
+  for (const row of rows) {
+    const key = typeMap[row.Type] ?? row.Type.toLowerCase();
+    (out[key] ??= {})[row.Number] = row.Line;
+  }
+  return out;
+}
+
+const storylines = byKey(sheet.Story, "number", "line");
+const rootLines = byKey(sheet.Root, "number", "line");
+const characteristicsLines = byTypeNumber(sheet.Hidden, {
+  Hidden: "hidden",
+  Parents: "parent",
+  Impression: "impression",
+  Subconscious: "subconscious",
+});
+const majorminorLines = byTypeNumber(sheet.MajorMinor, {
+  Many: "many",
+  Less: "less",
+  Perfect: "perfect",
+});
+const healthLines = byKey(sheet.Health, "element", "body");
+const careerLines = byKey(sheet.Career, "element", "careers");
 
 // ── Metadata ──────────────────────────────────────────────────────────────
 

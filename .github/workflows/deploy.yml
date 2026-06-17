@@ -1,10 +1,13 @@
 name: Deploy to GitHub Pages
 
-# When to run: on every push to main, plus a manual button
+# When to run: on every push to main, a manual button, and whenever the Google
+# Sheet fires a repository_dispatch (event type "sheet-updated") via Apps Script.
 on:
   push:
     branches: [main]
   workflow_dispatch:
+  repository_dispatch:
+    types: [sheet-updated]
 
 # Permissions the deploy needs (least-privilege)
 permissions:

@@ -4,7 +4,7 @@
 // (e.g. 89 -> 17 -> 8, 19 -> 10 -> 1)
 export function reduceToSingle(n: number): number {
   if (Number.isNaN(n)) return NaN;
-  if (n === 0) return 5; // 0 / "00" (e.g. year 2000) maps to 5
+  if (n === 0) return 5; // 0 maps to 5
   while (n >= 10) {
     let sum = 0;
     while (n > 0) {
