@@ -9,11 +9,12 @@ import { usePersistedState } from "../../lib/usePersistedState";
 // Reference table (the hand-drawn diagrams): final reduced number → the two
 // middle numbers of its chart. The rest of the pyramid is derived from these.
 // Most finals map to a single diagram; final 1 has two (the user picks by
-// clicking the diagram to toggle between them). 5 and 8 have no diagram.
+// clicking the diagram to toggle between them) — [1,1] is the default (1/2).
+// 5 and 8 have no diagram.
 const MIDDLE_BY_FINAL: Record<number, [number, number][]> = {
   1: [
-    [7, 1],
     [1, 1],
+    [7, 1],
   ],
   2: [[1, 2]],
   3: [[4, 3]],
@@ -191,6 +192,12 @@ export default function ZeriPage() {
     const d = new Date();
     setNow({ year: d.getFullYear(), month: d.getMonth() + 1 });
   }, []);
+
+  // Reset the diagram toggle to its default ([1,1], 1/2) whenever the birth date
+  // or chosen year changes, so a final of 1 always shows that diagram first.
+  useEffect(() => {
+    setVariant(0);
+  }, [birthDate, year]);
 
   // Final reduced number from birth year + chosen year (same chain as YearCombo),
   // then look up its reference chart and populate the diagram from the middle down.
