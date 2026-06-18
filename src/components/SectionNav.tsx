@@ -23,14 +23,13 @@ const PAGES = [
   },
   {
     href: "/planets",
-    label: "八大行星",
+    label: "电话号码",
     sections: [
       { id: "sec-input", label: "核心资料" },
-      { id: "sec-planets-life", label: "人生蓝图八大行星" },
-      { id: "sec-planets-ic", label: "身份证八大行星" },
+      { id: "sec-planets-life", label: "人生蓝图" },
+      { id: "sec-planets-ic", label: "身份证号码" },
+      { id: "sec-planets-total", label: "人生蓝图 + 身份证八大行星总数" },
       { id: "sec-planets-phone", label: "电话号码八大行星" },
-      { id: "sec-planets-total", label: "总数八大行星" },
-      { id: "sec-elements", label: "五行" },
     ],
   },
 ];

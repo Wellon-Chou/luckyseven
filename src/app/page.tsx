@@ -11,11 +11,23 @@ import { HealthSection } from "../components/sections/HealthSection";
 import { CareerSection } from "../components/sections/CareerSection";
 import { DirectionsSection } from "../components/sections/DirectionsSection";
 
-// Main page — 个人蓝图. The chrome (header, nav, account, theme) lives in the
-// shared AppShell; this just renders the report sections.
+// Main page — 个人蓝图. Uses its own birth date (birthDatePersonalDiagram) and
+// chart (personalChart), independent from the 八大行星 page.
 export default function Home() {
-  const { name, setName, birthDate, setBirthDate, phone, setPhone, ic, setIc, chart } =
-    useInput();
+  const {
+    name,
+    setName,
+    birthDatePersonalDiagram,
+    setbirthDatePersonalDiagram,
+    phone,
+    setPhone,
+    ic,
+    setIc,
+    personalChart,
+  } = useInput();
+
+  const birthDate = birthDatePersonalDiagram;
+  const chart = personalChart;
 
   return (
     <>
@@ -24,8 +36,8 @@ export default function Home() {
           fields={["name", "birthDate"]}
           name={name}
           onNameChange={setName}
-          birthDate={birthDate}
-          onBirthDateChange={setBirthDate}
+          birthDate={birthDatePersonalDiagram}
+          onBirthDateChange={setbirthDatePersonalDiagram}
           phone={phone}
           onPhoneChange={setPhone}
           ic={ic}

@@ -15,7 +15,10 @@ const FIELD_DEFS: Record<InputField, { id: string; label: string; type: string }
 };
 
 export function InputSection({
+  title = "核心资料",
   fields = ["name", "birthDate", "phone", "ic"],
+  labels,
+  bare = false,
   name,
   onNameChange,
   birthDate,
@@ -25,7 +28,12 @@ export function InputSection({
   ic,
   onIcChange,
 }: {
+  title?: string;
   fields?: InputField[];
+  labels?: Partial<Record<InputField, string>>;
+  // `bare` renders just the fields (no Section wrapper) — for embedding inside
+  // another section.
+  bare?: boolean;
   name: string;
   onNameChange: (value: string) => void;
   birthDate: string;
@@ -43,30 +51,31 @@ export function InputSection({
     ic: onIcChange,
   };
 
-  return (
-    <Section title="核心资料">
-      {/* Each field is flex-1, so however many are shown they stretch to fill
-          the row evenly (no awkward gaps). */}
-      <div className="mt-4 flex flex-col gap-4 sm:flex-row">
-        {fields.map((f) => {
-          const def = FIELD_DEFS[f];
-          return (
-            <div key={f} className={fieldClass}>
-              <label htmlFor={def.id} className={labelClass}>
-                {def.label}
-              </label>
-              <input
-                id={def.id}
-                type={def.type}
-                value={values[f]}
-                onChange={(e) => handlers[f](e.target.value)}
-                suppressHydrationWarning
-                className={inputClass}
-              />
-            </div>
-          );
-        })}
-      </div>
-    </Section>
+  // Each field is flex-1, so however many are shown they stretch to fill the row
+  // evenly (no awkward gaps).
+  const inputs = (
+    <div className="mt-4 flex flex-col gap-4 sm:flex-row">
+      {fields.map((f) => {
+        const def = FIELD_DEFS[f];
+        return (
+          <div key={f} className={fieldClass}>
+            <label htmlFor={def.id} className={labelClass}>
+              {labels?.[f] ?? def.label}
+            </label>
+            <input
+              id={def.id}
+              type={def.type}
+              value={values[f]}
+              onChange={(e) => handlers[f](e.target.value)}
+              suppressHydrationWarning
+              className={inputClass}
+            />
+          </div>
+        );
+      })}
+    </div>
   );
+
+  if (bare) return inputs;
+  return <Section title={title}>{inputs}</Section>;
 }

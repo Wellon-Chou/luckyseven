@@ -3,22 +3,19 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { computeChart, type Chart } from "../lib/numerology";
 
-// Shared input state so both pages (个人蓝图 and 八大行星) see the same birth
-// date / phone / IC and the same computed chart. Lives above the pages (in the
-// root layout) so it survives client-side navigation between them, and is
-// persisted to sessionStorage so a refresh / direct link to the second page
-// keeps the data for the session.
-
 type InputContextValue = {
   name: string;
   setName: (value: string) => void;
-  birthDate: string;
-  setBirthDate: (value: string) => void;
+  birthDatePersonalDiagram: string;
+  setbirthDatePersonalDiagram: (value: string) => void;
+  birthDatePhoneNumber: string;
+  setbirthDatePhoneNumber: (value: string) => void;
   phone: string;
   setPhone: (value: string) => void;
   ic: string;
   setIc: (value: string) => void;
-  chart: Chart;
+  personalChart: Chart;
+  phoneNumberChart: Chart;
 };
 
 const InputContext = createContext<InputContextValue | null>(null);
@@ -26,7 +23,8 @@ const STORAGE_KEY = "life-chart-input";
 
 export function InputProvider({ children }: { children: ReactNode }) {
   const [name, setName] = useState("");
-  const [birthDate, setBirthDate] = useState("");
+  const [birthDatePersonalDiagram, setbirthDatePersonalDiagram] = useState("");
+  const [birthDatePhoneNumber, setbirthDatePhoneNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [ic, setIc] = useState("");
 
@@ -37,12 +35,14 @@ export function InputProvider({ children }: { children: ReactNode }) {
       if (!raw) return;
       const saved = JSON.parse(raw) as Partial<{
         name: string;
-        birthDate: string;
+        birthDatePersonalDiagram: string;
+        birthDatePhoneNumber: string;
         phone: string;
         ic: string;
       }>;
       if (saved.name) setName(saved.name);
-      if (saved.birthDate) setBirthDate(saved.birthDate);
+      if (saved.birthDatePersonalDiagram) setbirthDatePersonalDiagram(saved.birthDatePersonalDiagram);
+      if (saved.birthDatePhoneNumber) setbirthDatePhoneNumber(saved.birthDatePhoneNumber);
       if (saved.phone) setPhone(saved.phone);
       if (saved.ic) setIc(saved.ic);
     } catch {
@@ -53,17 +53,19 @@ export function InputProvider({ children }: { children: ReactNode }) {
   // Persist on change.
   useEffect(() => {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ name, birthDate, phone, ic }));
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ name, birthDatePersonalDiagram, birthDatePhoneNumber, phone, ic }));
     } catch {
       /* ignore */
     }
-  }, [name, birthDate, phone, ic]);
+  }, [name, birthDatePersonalDiagram, birthDatePhoneNumber, phone, ic]);
 
-  const chart = computeChart(birthDate);
+  const personalChart = computeChart(birthDatePersonalDiagram);
+  const phoneNumberChart = computeChart(birthDatePhoneNumber);
 
   return (
     <InputContext.Provider
-      value={{ name, setName, birthDate, setBirthDate, phone, setPhone, ic, setIc, chart }}
+      value={{ name, setName, birthDatePersonalDiagram, setbirthDatePersonalDiagram, birthDatePhoneNumber, setbirthDatePhoneNumber, 
+               phone, setPhone, ic, setIc, personalChart, phoneNumberChart }}
     >
       {children}
     </InputContext.Provider>

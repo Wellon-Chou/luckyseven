@@ -6,12 +6,13 @@
 //
 // Any combination containing a 5 or a 0 is not in the 64 — it maps to 土星.
 
+// Display order for the 星属统计 / 总数 tables (rows top-to-bottom).
 export const PLANETS_ORDER = [
-  "水星",
   "金星",
-  "火星",
   "木星",
+  "水星",
   "土星",
+  "火星",
   "天王星",
   "海王星",
   "冥王星",
