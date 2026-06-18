@@ -105,7 +105,7 @@ function YearCombo({ birthYear, addedYear }: { birthYear: string; addedYear: str
   return (
     <svg
       viewBox="0 0 240 320"
-      className="mx-auto w-full max-w-[208px] -translate-x-[30%]"
+      className="mx-auto w-full max-w-[208px] sm:-translate-x-[30%]"
       fill="none"
       stroke="currentColor"
       style={{ color: "var(--chart-line)" }}
@@ -310,12 +310,12 @@ export default function ZeriPage() {
       {/* Year combination: left computation, right diagram (placeholder for now). */}
       <div id="sec-zeri-combo" className="w-full scroll-mt-24">
         <Section title="择日组合">
-          <div className="mt-4 flex flex-col gap-8 sm:flex-row sm:items-start">
+          <div className="mt-4 flex flex-col items-center gap-8 sm:flex-row sm:items-start">
             <div className="shrink-0 sm:w-1/3">
               <YearCombo birthYear={birthDate.slice(0, 4)} addedYear={year} />
             </div>
-            <div className="flex min-w-0 flex-1 flex-col items-center px-4 sm:px-12">
-              <div className="@container w-[51.48rem] max-w-full -translate-x-[12%]">
+            <div className="flex w-full min-w-0 flex-1 flex-col items-center px-4 sm:px-12">
+              <div className="@container w-[51.48rem] max-w-full sm:-translate-x-[12%]">
                 {/* Two reference lines above the pyramid, column-aligned with
                     each other and with the diagram's first row. */}
                 <div className="-mb-2">
