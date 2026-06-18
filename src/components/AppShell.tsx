@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <ThemeToggle />
       <AuthModal />
       <main className="flex flex-1 w-full max-w-6xl flex-col gap-10 pt-20 pb-32 px-4 sm:px-8 lg:px-16">
-        <header className="title-container w-full flex-col items-start gap-2 rounded-2xl border border-amber-200/70 bg-gradient-to-r from-amber-100 to-white px-8 py-10 text-left shadow-sm ring-1 ring-amber-100/50">
+        <header className="title-container w-full flex-col items-start gap-2 rounded-2xl border border-amber-200/70 bg-gradient-to-r from-amber-100 to-white px-6 py-8 text-left shadow-sm ring-1 ring-amber-100/50 sm:px-8 sm:py-10">
           <h1 className="title">天数字学数姿艺</h1>
           <p className="text-base text-amber-800/80">生命灵数 · 个人命盘解析</p>
         </header>

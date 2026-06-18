@@ -2,6 +2,9 @@ import { show, type Chart } from "../lib/numerology";
 
 // Layout positions for the chart numbers (hardcoded for the 4-number layout).
 const reducedX = [188, 329, 471, 612]; // top tier: 2 left, 2 right
+// The same columns as a % of the 800-wide viewBox, for the HTML rows above the
+// SVG so they line up with each other and with the diagram's first row.
+const reducedXPct = reducedX.map((x) => (x / 800) * 100);
 const middleX = [310, 490]; // middle tier: left, right
 const sideY = 475; // vertical position of the side equations
 
@@ -45,9 +48,13 @@ export function BaseChart({
       {hideTop ? null : topRows ? (
         <div className="-mb-3 flex flex-col gap-0.5">
           {topRows.map((row, r) => (
-            <div key={r} className="flex justify-evenly">
+            <div key={r} className="relative h-[4.5cqw]">
               {row.map((n, i) => (
-                <span key={i} className="text-[3.75cqw] font-semibold text-amber-800">
+                <span
+                  key={i}
+                  style={{ left: `${reducedXPct[i]}%` }}
+                  className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 text-[3.75cqw] font-semibold text-amber-800"
+                >
                   {show(n)}
                 </span>
               ))}

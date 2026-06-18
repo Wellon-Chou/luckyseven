@@ -213,23 +213,28 @@ export default function ZeriPage() {
   const birthSplit = splitYear(birthDate.slice(0, 4));
   const chosenSplit = splitYear(year);
   const monthNum = month ? Number(month) : NaN;
+  // Bottom line, first two numbers: reduced birth day and reduced birth month.
+  const validBirth = /^\d{4}-\d{2}-\d{2}$/.test(birthDate);
+  const rBirthDay = validBirth ? reduceToSingle(Number(birthDate.slice(8, 10))) : NaN;
+  const rBirthMonth = validBirth ? reduceToSingle(Number(birthDate.slice(5, 7))) : NaN;
 
-  // The diagram's first row = the two lines added column-wise. Columns 2–4 add
-  // (month + birth digit, then the reduced halves). Column 1 has no addend (the
-  // circle), so it's deduced from column 2 and the diagram's left-middle number.
-  const col1 = birthSplit ? reduceToSingle(monthNum + Number(birthSplit.b[1])) : NaN;
+  // The diagram's first row = the two lines added column-wise. Column 2 adds the
+  // chosen month + reduced birth month; columns 3–4 add the reduced year halves.
+  // Column 1 has no addend (the circle), so it's deduced from column 2 and the
+  // diagram's left-middle number.
+  const col1 = reduceToSingle(monthNum + rBirthMonth);
   const col2 = birthSplit && chosenSplit ? reduceToSingle(chosenSplit.ra + birthSplit.ra) : NaN;
   const col3 = birthSplit && chosenSplit ? reduceToSingle(chosenSplit.rb + birthSplit.rb) : NaN;
   const col0 = middle ? deduceFirst(middle[0], col1) : NaN;
   const rightChartFull = { ...rightChart, reducedBirthDate: [col0, col1, col2, col3] };
 
   // Auspicious days: every day in the chosen month whose digit adds with the
-  // birth digit (bottom-line col 1) to reproduce the diagram's first number (col0).
-  // i.e. reduce(day + birthDigit) === col0 — the date that fills the empty circle.
+  // reduced birth day (bottom-line col 1) to reproduce the diagram's first number
+  // (col0). i.e. reduce(day + reducedBirthDay) === col0 — the date for the circle.
   const goodDays =
-    !Number.isNaN(col0) && birthSplit && !Number.isNaN(monthNum)
+    !Number.isNaN(col0) && !Number.isNaN(rBirthDay) && !Number.isNaN(monthNum)
       ? Array.from({ length: daysInMonth(Number(year), monthNum) }, (_, i) => i + 1).filter(
-          (d) => reduceToSingle(d + Number(birthSplit.b[0])) === col0,
+          (d) => reduceToSingle(d + rBirthDay) === col0,
         )
       : [];
 
@@ -337,11 +342,12 @@ export default function ZeriPage() {
                       <span key="rb" className="text-[3.75cqw] font-semibold text-amber-800">{show(chosenSplit?.rb)}</span>,
                     ]}
                   />
-                  {/* Bottom line: birth year → last two digits, reduced halves. */}
+                  {/* Bottom line: reduced birth day, reduced birth month, then the
+                      reduced halves of the birth year. */}
                   <RefLine
                     cells={[
-                      <span key="d0" className="text-[3.75cqw] font-semibold text-amber-800">{show(birthSplit ? Number(birthSplit.b[0]) : null)}</span>,
-                      <span key="d1" className="text-[3.75cqw] font-semibold text-amber-800">{show(birthSplit ? Number(birthSplit.b[1]) : null)}</span>,
+                      <span key="d0" className="text-[3.75cqw] font-semibold text-amber-800">{show(rBirthDay)}</span>,
+                      <span key="d1" className="text-[3.75cqw] font-semibold text-amber-800">{show(rBirthMonth)}</span>,
                       <span key="ra" className="text-[3.75cqw] font-semibold text-amber-800">{show(birthSplit?.ra)}</span>,
                       <span key="rb" className="text-[3.75cqw] font-semibold text-amber-800">{show(birthSplit?.rb)}</span>,
                     ]}
