@@ -46,7 +46,7 @@ export function BaseChart({
           Sized in cqw so they scale with the chart like the in-SVG numbers
           (SVG fontSize 30 / viewBox 800 = 3.75% of the container width). */}
       {hideTop ? null : topRows ? (
-        <div className="-mb-3 flex flex-col gap-0.5">
+        <div className="-mb-[1.8cqw] flex flex-col gap-0.5">
           {topRows.map((row, r) => (
             <div key={r} className="relative h-[4.5cqw]">
               {row.map((n, i) => (
@@ -62,7 +62,7 @@ export function BaseChart({
           ))}
         </div>
       ) : (
-        <div className="relative -mb-3 h-[4.5cqw]">
+        <div className="relative -mb-[1.8cqw] h-[4.5cqw]">
           {numbers.map((n, i) => (
             <span
               key={i}
