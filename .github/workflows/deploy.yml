@@ -28,7 +28,7 @@ jobs:
 
       - uses: actions/setup-node@v4          # install Node
         with:
-          node-version: 20
+          node-version: 22                   # 22+ has native WebSocket (supabase-js/realtime-js needs it)
           cache: npm                         # cache ~/.npm between runs (needs package-lock.json)
 
       - run: npm ci                          # clean install from package-lock.json
