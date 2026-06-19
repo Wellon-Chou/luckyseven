@@ -2,6 +2,7 @@
 
 import { Section } from "../../components/Section";
 import { BaseChart } from "../../components/BaseChart";
+import { DateInput } from "../../components/DateInput";
 import { computeChart, cumulativeChart } from "../../lib/numerology";
 import { usePersistedState } from "../../lib/usePersistedState";
 
@@ -61,12 +62,10 @@ export default function HeshuPage() {
                 <label htmlFor={`birthDate-${d.id}`} className={labelClass}>
                   Person {String.fromCharCode(65 + i)}
                 </label>
-                <input
+                <DateInput
                   id={`birthDate-${d.id}`}
-                  type="date"
                   value={d.value}
-                  onChange={(e) => update(d.id, e.target.value)}
-                  suppressHydrationWarning
+                  onChange={(iso) => update(d.id, iso)}
                   className={inputClass}
                 />
               </div>

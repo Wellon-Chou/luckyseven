@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Section } from "../../components/Section";
 import { BaseChart } from "../../components/BaseChart";
+import { DateInput } from "../../components/DateInput";
 import { chartFromMiddle, reduceToSingle } from "../../lib/numerology";
 import { usePersistedState } from "../../lib/usePersistedState";
 
@@ -270,12 +271,10 @@ export default function ZeriPage() {
               <label htmlFor="zeri-birthDate" className={labelClass}>
                 出生日期
               </label>
-              <input
+              <DateInput
                 id="zeri-birthDate"
-                type="date"
                 value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                suppressHydrationWarning
+                onChange={setBirthDate}
                 className={inputClass}
               />
             </div>

@@ -6,7 +6,7 @@ const reducedX = [188, 329, 471, 612]; // top tier: 2 left, 2 right
 // SVG so they line up with each other and with the diagram's first row.
 const reducedXPct = reducedX.map((x) => (x / 800) * 100);
 const middleX = [310, 490]; // middle tier: left, right
-const sideY = 475; // vertical position of the side equations
+const sideY = 430; // vertical position of the side equations — level with the root number
 
 // Colours come from CSS variables (see globals.css) so the chart adapts to the
 // dark theme. SVG presentation attributes don't accept var(), so they're applied
@@ -62,9 +62,13 @@ export function BaseChart({
           ))}
         </div>
       ) : (
-        <div className="-mb-3 flex justify-evenly">
+        <div className="relative -mb-3 h-[4.5cqw]">
           {numbers.map((n, i) => (
-            <span key={i} className="text-[3.75cqw] font-semibold text-amber-800">
+            <span
+              key={i}
+              style={{ left: `${reducedXPct[i]}%` }}
+              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 text-[3.75cqw] font-semibold text-amber-800"
+            >
               {n}
             </span>
           ))}

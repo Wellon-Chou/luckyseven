@@ -18,6 +18,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "天数字学数姿艺",
   description: "天数字学数姿艺",
+  // iOS Safari's data detectors auto-link things that look like phone numbers /
+  // dates (the chart digits), adding stray underlines that only show on iPhone.
+  // Disabling format detection stops that.
+  formatDetection: {
+    telephone: false,
+    date: false,
+    address: false,
+    email: false,
+  },
 };
 
 export default function RootLayout({

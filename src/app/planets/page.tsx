@@ -120,7 +120,7 @@ export default function PlanetsPage() {
           aside={
             <FiveElementHealthTable
               title="人生蓝图五行健康"
-              countHealth={personalChart.countHealth}
+              countHealth={chart.countHealth}
             />
           }
         />

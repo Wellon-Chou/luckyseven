@@ -1,4 +1,5 @@
 import { Section } from "../Section";
+import { DateInput } from "../DateInput";
 
 const inputClass =
   "w-full rounded-md border border-amber-200 px-3 py-2 text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200";
@@ -62,14 +63,23 @@ export function InputSection({
             <label htmlFor={def.id} className={labelClass}>
               {labels?.[f] ?? def.label}
             </label>
-            <input
-              id={def.id}
-              type={def.type}
-              value={values[f]}
-              onChange={(e) => handlers[f](e.target.value)}
-              suppressHydrationWarning
-              className={inputClass}
-            />
+            {def.type === "date" ? (
+              <DateInput
+                id={def.id}
+                value={values[f]}
+                onChange={handlers[f]}
+                className={inputClass}
+              />
+            ) : (
+              <input
+                id={def.id}
+                type={def.type}
+                value={values[f]}
+                onChange={(e) => handlers[f](e.target.value)}
+                suppressHydrationWarning
+                className={inputClass}
+              />
+            )}
           </div>
         );
       })}
