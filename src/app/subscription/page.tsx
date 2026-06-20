@@ -16,20 +16,30 @@ export default function SubscriptionPage() {
   const { busy, error, startCheckout, openPortal } = useBilling();
   const [notice, setNotice] = useState<"success" | "cancelled" | null>(null);
 
-  // Returning from Stripe Checkout. On success the webhook may lag a moment, so
-  // re-check the tier a couple of times.
+  // Returning from Stripe Checkout: show the notice once, and drop the ?checkout=
+  // param so it can't reappear on a reload or when navigating away and back.
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get("checkout");
-    if (p === "success" || p === "cancelled") setNotice(p);
-    if (p === "success") {
-      const t1 = setTimeout(refresh, 1500);
-      const t2 = setTimeout(refresh, 4000);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
+    if (p !== "success" && p !== "cancelled") return;
+    setNotice(p);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  // After a successful checkout the webhook may lag, so poll the tier until it
+  // reflects the paid level (capped at 20s), then hide the "正在更新…" line.
+  useEffect(() => {
+    if (notice !== "success") return;
+    if (level > 0) {
+      setNotice(null);
+      return;
     }
-  }, [refresh]);
+    const iv = setInterval(refresh, 2000);
+    const stop = setTimeout(() => clearInterval(iv), 20000);
+    return () => {
+      clearInterval(iv);
+      clearTimeout(stop);
+    };
+  }, [notice, level, refresh]);
 
   return (
     <div className="w-full">
