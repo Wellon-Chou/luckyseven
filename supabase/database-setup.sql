@@ -65,3 +65,33 @@ create policy "read content by tier"
 insert into public.content (section, item_key, line, min_tier)
 values ('story', '0', 'TEST line — must be HIDDEN from non-subscribers', 1)
 on conflict (section, subtype, item_key) do nothing;
+
+-- ── 7. BLUEPRINTS: a user's saved name + birth-date records (蓝图存档) ────────
+create table if not exists public.blueprints (
+  id         uuid        primary key default gen_random_uuid(),
+  user_id    uuid        not null references auth.users(id) on delete cascade default auth.uid(),
+  name       text        not null,
+  birth_date text        not null,                 -- ISO "YYYY-MM-DD"
+  created_at timestamptz not null default now()
+);
+
+alter table public.blueprints enable row level security;
+
+-- A user may only read / add / delete their OWN saved records.
+drop policy if exists "read own blueprints" on public.blueprints;
+create policy "read own blueprints"
+  on public.blueprints for select
+  to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "insert own blueprints" on public.blueprints;
+create policy "insert own blueprints"
+  on public.blueprints for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "delete own blueprints" on public.blueprints;
+create policy "delete own blueprints"
+  on public.blueprints for delete
+  to authenticated
+  using (user_id = auth.uid());

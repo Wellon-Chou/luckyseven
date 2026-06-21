@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAccessLevel } from "./AccessProvider";
 import { useStartSubscribe } from "./useStartSubscribe";
+import { useAuth } from "./AuthProvider";
+import { useInput } from "./InputProvider";
+import { useBlueprints, type Blueprint } from "./BlueprintsProvider";
 
 // Pages (top-level nav) and the in-page section anchors for each.
 // minLevel = subscription tier needed to open the page (0 free · 1 standard · 2 premium).
@@ -67,6 +70,29 @@ export function SectionNav() {
   const startSubscribe = useStartSubscribe();
   // tier 1+ → "upgrade"; tier 0 → "subscribe".
   const isSubscriber = level >= 1;
+
+  // 蓝图存档 — the saved-records list (doesn't navigate; opens inline).
+  const router = useRouter();
+  const { user, openModal } = useAuth();
+  const { setName, setbirthDatePersonalDiagram } = useInput();
+  const { records, loading: recordsLoading, refresh, remove } = useBlueprints();
+  const [archiveOpen, setArchiveOpen] = useState(false);
+
+  const toggleArchive = () => {
+    setLockPopup(null);
+    const next = !archiveOpen;
+    setArchiveOpen(next);
+    if (next && user) refresh(); // refetch when opening
+  };
+
+  // Load a saved record back into the 个人蓝图 inputs and go to that page —
+  // leaving the side nav (and the archive list) open.
+  const loadRecord = (rec: Blueprint) => {
+    setName(rec.name);
+    setbirthDatePersonalDiagram(rec.birth_date);
+    setLockPopup(null);
+    router.push("/");
+  };
 
   // Drop the popup whenever we navigate.
   useEffect(() => setLockPopup(null), [pathname]);
@@ -172,6 +198,75 @@ export function SectionNav() {
                 </div>
               );
             })}
+
+            {/* 蓝图存档 — a saved-records list that opens inline (no navigation). */}
+            <div>
+              <button
+                type="button"
+                onClick={toggleArchive}
+                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  archiveOpen
+                    ? "bg-amber-100/60 text-amber-900"
+                    : "text-amber-800 hover:bg-amber-100 hover:text-amber-900"
+                }`}
+              >
+                <span>蓝图存档</span>
+                <svg
+                  className={`h-3.5 w-3.5 transition-transform ${archiveOpen ? "rotate-90" : ""}`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+
+              {archiveOpen && (
+                <div className="mb-1 mt-1.5 pl-2">
+                  {!user ? (
+                    <button
+                      type="button"
+                      onClick={() => openModal()}
+                      className="py-1 text-left text-sm text-amber-700/80 underline underline-offset-2 transition hover:text-amber-900"
+                    >
+                      请先登录以查看存档
+                    </button>
+                  ) : recordsLoading ? (
+                    <p className="py-1 text-sm text-amber-700/60">加载中…</p>
+                  ) : records.length === 0 ? (
+                    <p className="py-1 text-sm text-amber-700/60">暂无存档</p>
+                  ) : (
+                    <ul className="space-y-1 border-l-2 border-amber-200 pl-3">
+                      {records.map((rec) => (
+                        <li key={rec.id} className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => loadRecord(rec)}
+                            title={`${rec.name} · ${rec.birth_date}`}
+                            className="min-w-0 flex-1 truncate py-1 text-left text-sm text-amber-700/80 transition hover:font-semibold hover:text-amber-900"
+                          >
+                            {rec.name}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => remove(rec.id)}
+                            aria-label="删除"
+                            title="删除"
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-amber-400 transition hover:bg-amber-100 hover:text-red-500"
+                          >
+                            ×
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : (

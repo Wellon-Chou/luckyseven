@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useInput } from "../components/InputProvider";
+import { useAuth } from "../components/AuthProvider";
+import { useBlueprints } from "../components/BlueprintsProvider";
 import { saveReportPdf } from "../lib/savePdf";
 import { InputSection } from "../components/sections/InputSection";
 import { ChartSection } from "../components/sections/ChartSection";
@@ -30,7 +32,13 @@ export default function Home() {
 
   const birthDate = birthDatePersonalDiagram;
   const chart = personalChart;
+  const { user, openModal } = useAuth();
+  const { save, records } = useBlueprints();
   const [saving, setSaving] = useState(false);
+  const [savingRecord, setSavingRecord] = useState(false);
+  const [recordNotice, setRecordNotice] = useState<string | null>(null);
+  // Already saved if a record with this name exists — then the button is disabled.
+  const alreadySaved = !!name.trim() && records.some((r) => r.name.trim() === name.trim());
 
   const handleSavePdf = async () => {
     const el = document.querySelector("main");
@@ -45,6 +53,21 @@ export default function Home() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Save the current name + birth date to 蓝图存档 (tagged to the account).
+  const handleSaveRecord = async () => {
+    if (!user) {
+      openModal();
+      return;
+    }
+    setSavingRecord(true);
+    setRecordNotice(null);
+    const { error } = await save(name, birthDate);
+    setSavingRecord(false);
+    // On success the button disables itself (name now in the list); only surface
+    // errors.
+    setRecordNotice(error ? `保存失败：${error}` : null);
   };
 
   return (
@@ -104,17 +127,30 @@ export default function Home() {
           </svg>
           {saving ? "保存中…" : "保存为 PDF"}
         </button>
-        {/* TODO: wire up "save record" — no functionality yet. */}
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-6 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-900"
+          onClick={handleSaveRecord}
+          disabled={!name || !birthDate || savingRecord || alreadySaved}
+          title={
+            alreadySaved
+              ? "该姓名已存档"
+              : !name || !birthDate
+                ? "请先输入姓名和出生日期"
+                : undefined
+          }
+          className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-6 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-900 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
           </svg>
-          保存记录
+          {savingRecord ? "保存中…" : alreadySaved ? "已存档" : "保存记录"}
         </button>
       </div>
+      {recordNotice && (
+        <p className="pt-2 text-center text-sm font-medium text-amber-700 print:hidden">
+          {recordNotice}
+        </p>
+      )}
     </>
   );
 }

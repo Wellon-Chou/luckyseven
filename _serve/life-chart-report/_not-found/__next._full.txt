@@ -13,4 +13,4 @@ d:[]
 9:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
 e:I[27201,["/life-chart-report/_next/static/chunks/158myu8e_yme3.js"],"IconMark"]
 6:null
-b:[["$","title","0",{"children":"天数字学数姿艺"}],["$","meta","1",{"name":"description","content":"天数字学数姿艺"}],["$","link","2",{"rel":"icon","href":"/life-chart-report/favicon.ico?favicon.2vob68tjqpejf.ico","sizes":"256x256","type":"image/x-icon"}],["$","$Le","3",{}]]
+b:[["$","title","0",{"children":"数字学"}],["$","meta","1",{"name":"description","content":"数字学"}],["$","link","2",{"rel":"icon","href":"/life-chart-report/favicon.ico?favicon.2vob68tjqpejf.ico","sizes":"256x256","type":"image/x-icon"}],["$","$Le","3",{}]]

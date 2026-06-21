@@ -5,6 +5,7 @@ import { AuthProvider } from "../components/AuthProvider";
 import { AccessProvider } from "../components/AccessProvider";
 import { ContentProvider } from "../components/ContentProvider";
 import { InputProvider } from "../components/InputProvider";
+import { BlueprintsProvider } from "../components/BlueprintsProvider";
 import { AppShell } from "../components/AppShell";
 
 const geistSans = Geist({
@@ -18,8 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "天数字学数姿艺",
-  description: "天数字学数姿艺",
+  title: "数字学",
+  description: "数字学",
   // iOS Safari's data detectors auto-link things that look like phone numbers /
   // dates (the chart digits), adding stray underlines that only show on iPhone.
   // Disabling format detection stops that.
@@ -54,9 +55,11 @@ export default function RootLayout({
         <AuthProvider>
           <AccessProvider>
             <ContentProvider>
-              <InputProvider>
-                <AppShell>{children}</AppShell>
-              </InputProvider>
+              <BlueprintsProvider>
+                <InputProvider>
+                  <AppShell>{children}</AppShell>
+                </InputProvider>
+              </BlueprintsProvider>
             </ContentProvider>
           </AccessProvider>
         </AuthProvider>
