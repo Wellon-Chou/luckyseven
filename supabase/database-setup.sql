@@ -95,3 +95,16 @@ create policy "delete own blueprints"
   on public.blueprints for delete
   to authenticated
   using (user_id = auth.uid());
+
+-- ── 8. AI SUMMARY CACHE (总体故事 is a free feature — no login, no cap) ───────
+-- Global cache of generated summaries, keyed by a hash of the source material,
+-- so repeat requests are free.
+create table if not exists public.summary_cache (
+  source_hash text        primary key,
+  text        text        not null,
+  created_at  timestamptz not null default now()
+);
+
+-- Only the Edge Function (service role) touches this; RLS on with no policies
+-- denies all direct client access.
+alter table public.summary_cache enable row level security;

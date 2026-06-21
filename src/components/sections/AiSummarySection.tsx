@@ -10,6 +10,38 @@ const bodyClass = "whitespace-pre-line leading-relaxed text-zinc-700";
 const btnClass =
   "rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-60";
 
+// Client-side cache so a previously generated story for the same chart shows
+// instantly and for free on repeat clicks (the server caches too — this just
+// avoids the round-trip).
+const CACHE_KEY = "life-summary-cache";
+type CacheMap = Record<string, string>;
+function loadCache(): CacheMap {
+  try {
+    return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}") as CacheMap;
+  } catch {
+    return {};
+  }
+}
+function saveCache(map: CacheMap) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(map));
+  } catch {
+    /* ignore unavailable storage */
+  }
+}
+// A stable key from the chart fields that determine the summary.
+function chartKey(chart: Chart): string {
+  return JSON.stringify([
+    chart.rootNumber,
+    chart.storyNumbers,
+    chart.uniqueStoryNumbers,
+    chart.hiddenNumbers,
+    chart.countMajorMinor,
+    chart.countHealth,
+    chart.careerElement,
+  ]);
+}
+
 // Imperative handle so the PDF save can generate the story on demand if it
 // hasn't been generated yet.
 export type AiSummaryHandle = { ensureGenerated: () => Promise<void> };
@@ -27,24 +59,38 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
     setError(null);
   }, [birthDate]);
 
-  const generate = async () => {
+  const generate = async (force = false) => {
     if (!supabase) {
       setError("AI 服务尚未配置。");
       return;
     }
+    const key = chartKey(chart);
+    if (!force) {
+      const cached = loadCache()[key];
+      if (cached) {
+        setStory(cached);
+        setError(null);
+        return; // repeat — free, instant, no network
+      }
+    }
     setBusy(true);
     setError(null);
     try {
-      // Send only the chart (the computed numbers). The Edge Function reads the
-      // source interpretation lines itself with the service role — so the AI works
-      // for everyone (no login, no subscription needed) while the raw detail lines
-      // stay gated by RLS.
+      // Send only the chart (the computed numbers); the Edge Function reads the
+      // source lines with the service role and caches the result (force =
+      // "重新生成" bypasses the cache to make a fresh one). Free — no login/quota.
       const { data, error: fnError } = await supabase.functions.invoke<{ text: string }>(
         "life-summary",
-        { body: { chart } },
+        { body: { chart, force } },
       );
       if (fnError) throw fnError;
-      setStory(data?.text ?? "");
+      const text = data?.text ?? "";
+      setStory(text);
+      if (text) {
+        const map = loadCache();
+        map[key] = text;
+        saveCache(map);
+      }
     } catch (e) {
       // supabase-js reports non-2xx responses as a generic message and tucks the
       // function's real JSON body into error.context (a Response). Surface it.
@@ -80,7 +126,7 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
           {story ? (
             <div className={cardClass}>
               <p className={bodyClass}>{story}</p>
-              <button type="button" onClick={generate} disabled={busy} className={`mt-4 ${btnClass} print:hidden`}>
+              <button type="button" onClick={() => generate(true)} disabled={busy} className={`mt-4 ${btnClass} print:hidden`}>
                 {busy ? "生成中…" : "重新生成"}
               </button>
             </div>
@@ -90,7 +136,7 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
                 综合「数字故事 · 隐藏性格 · 能力分布 · 健康关系 · 事业和职业选择」，
                 生成一段专属于您的人生故事。
               </p>
-              <button type="button" onClick={generate} disabled={busy} className={`${btnClass} print:hidden`}>
+              <button type="button" onClick={() => generate()} disabled={busy} className={`${btnClass} print:hidden`}>
                 {busy ? "生成中…" : "生成总体故事"}
               </button>
             </div>

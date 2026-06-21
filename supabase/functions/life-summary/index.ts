@@ -37,6 +37,14 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "content-type": "application/json" },
   });
 
+// Stable hex SHA-256 of a string — the cache key for a summary's source material.
+async function sha256(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 // ── Content assembly (mirrors src/lib/content.ts) ──────────────────────────
 // Kept in sync by hand: this is the Deno twin of buildContentData +
 // collectStorySources so the summary's source material matches the app.
@@ -184,7 +192,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
-    const { chart } = (await req.json()) as { chart?: Chart };
+    const { chart, force } = (await req.json()) as { chart?: Chart; force?: boolean };
     if (!chart) return json({ error: "缺少命盘数据。" }, 400);
 
     // Read the source lines server-side with the service role (bypasses RLS), so
@@ -200,6 +208,20 @@ Deno.serve(async (req) => {
 
     const source = collectSource(buildContentData((rows ?? []) as ContentRow[]), chart);
     if (!source.trim()) return json({ error: "没有可用的内容。" }, 400);
+
+    const sourceHash = await sha256(source);
+
+    // Cache: a previously generated summary for the same source is returned for
+    // free, so repeat requests cost nothing. (总体故事 is a free feature — no login
+    // or quota.)
+    if (!force) {
+      const { data: hit } = await supa
+        .from("summary_cache")
+        .select("text")
+        .eq("source_hash", sourceHash)
+        .maybeSingle();
+      if (hit?.text) return json({ text: hit.text, cached: true });
+    }
 
     const apiKey = Deno.env.get("GROQ_API_KEY");
     if (!apiKey) return json({ error: "GROQ_API_KEY 未配置。" }, 500);
@@ -231,6 +253,11 @@ Deno.serve(async (req) => {
 
     const data = await res.json();
     const text: string = data?.choices?.[0]?.message?.content ?? "";
+
+    // Cache the result (overwriting on a forced regenerate).
+    if (text) {
+      await supa.from("summary_cache").upsert({ source_hash: sourceHash, text });
+    }
 
     return json({ text });
   } catch (e) {
