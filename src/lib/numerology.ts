@@ -316,6 +316,53 @@ export function cumulativeChart(charts: Chart[]): Chart {
   };
 }
 
+// "Shadow numbers" chart: double every number (n → reduce(n + n)), e.g. the top
+// row 8 9 1 8 → 7 9 2 7. Doubling the top row and re-deriving the pyramid is the
+// same as doubling every number, since doubling is linear under the digital root.
+export function shadowChart(chart: Chart): Chart {
+  const reducedBirthDate = chart.reducedBirthDate.map((n) => reduceToSingle(n + n));
+
+  const middle = [
+    reduceToSingle(reducedBirthDate[0] + reducedBirthDate[1]),
+    reduceToSingle(reducedBirthDate[2] + reducedBirthDate[3]),
+  ];
+  const rootNumber = reduceToSingle(middle[0] + middle[1]);
+  const belowRight = reduceToSingle(middle[0] + rootNumber);
+  const belowLeft = reduceToSingle(middle[1] + rootNumber);
+  const belowLast = reduceToSingle(belowLeft + belowRight);
+
+  const ls0 = reduceToSingle(reducedBirthDate[0] + middle[0]);
+  const ls1 = reduceToSingle(reducedBirthDate[1] + middle[0]);
+  const leftSide = [ls0, ls1, reduceToSingle(ls0 + ls1)];
+  const rs0 = reduceToSingle(reducedBirthDate[2] + middle[1]);
+  const rs1 = reduceToSingle(reducedBirthDate[3] + middle[1]);
+  const rightSide = [rs0, rs1, reduceToSingle(rs0 + rs1)];
+
+  return {
+    numbers: chart.numbers, // the row above the diagram stays the same in both modes
+    reducedBirthDate,
+    middle,
+    rootNumber,
+    belowLeft,
+    belowRight,
+    belowLast,
+    leftSide,
+    rightSide,
+    storyNumbers: [],
+    uniqueStoryNumbers: [],
+    hiddenNumbers: [],
+    countMajorMinor: Array(9).fill(0),
+    countHealth: { gold: 0, water: 0, fire: 0, wood: 0, earth: 0 },
+    careerElement: "",
+    countDirections: {
+      wealth: { count: 0, directions: [] },
+      luck: { count: 0, directions: [] },
+      success: { count: 0, directions: [] },
+    },
+    directionValues: {},
+  };
+}
+
 // Build a chart from just the two middle numbers — the rest of the pyramid from
 // the middle down (root + below-baseline) is derived as usual. The top tier
 // (reducedBirthDate) and side equations are left blank (NaN) to be filled later.

@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from "react";
 import { Section } from "../../components/Section";
 import { BaseChart } from "../../components/BaseChart";
+import { ChartModeToggle, type ChartMode } from "../../components/ChartModeToggle";
 import { DateInput } from "../../components/DateInput";
 import { PageGate } from "../../components/PageGate";
-import { computeChart, cumulativeChart } from "../../lib/numerology";
+import { computeChart, cumulativeChart, shadowChart } from "../../lib/numerology";
 import { usePersistedState } from "../../lib/usePersistedState";
 
 const inputClass =
@@ -17,6 +19,8 @@ export default function HeshuPage() {
     { id: 0, value: "", enabled: true },
     { id: 1, value: "", enabled: true },
   ]);
+  // 个人蓝图 vs 影子数字 (every number doubled) for all diagrams in this section.
+  const [mode, setMode] = useState<ChartMode>("normal");
 
   const update = (id: number, value: string) =>
     setDates((prev) => prev.map((d) => (d.id === id ? { ...d, value } : d)));
@@ -33,6 +37,7 @@ export default function HeshuPage() {
   const charts = dates.map((d) => computeChart(d.value));
   // Only people whose toggle is on contribute to the cumulative (合数) chart.
   const enabledCharts = charts.filter((_, i) => dates[i].enabled !== false);
+  const cumulative = cumulativeChart(enabledCharts);
 
   return (
     <PageGate minLevel={1}>
@@ -103,8 +108,8 @@ export default function HeshuPage() {
                 <h3 className="mb-2 text-base font-semibold text-amber-900">
                   Person {String.fromCharCode(65 + i)}
                 </h3>
-                <div className="@container w-full">
-                  <BaseChart chart={charts[i]} />
+                <div className={`@container w-full ${mode === "shadow" ? "chart-shadow" : ""}`}>
+                  <BaseChart chart={mode === "shadow" ? shadowChart(charts[i]) : charts[i]} />
                 </div>
               </div>
             ),
@@ -115,12 +120,22 @@ export default function HeshuPage() {
             into the first row, then the rest of the pyramid derived from it. */}
         <div className="mt-10">
           <h3 className="mb-2 text-base font-semibold text-amber-900">合数</h3>
-          <div className="@container mx-auto w-full max-w-2xl">
+          <div
+            className={`@container mx-auto w-full max-w-2xl ${
+              mode === "shadow" ? "chart-shadow" : ""
+            }`}
+          >
             <BaseChart
-              chart={cumulativeChart(enabledCharts)}
-              topRows={enabledCharts.map((c) => c.reducedBirthDate)}
+              chart={mode === "shadow" ? shadowChart(cumulative) : cumulative}
+              topRows={enabledCharts.map((c) =>
+                mode === "shadow" ? shadowChart(c).reducedBirthDate : c.reducedBirthDate,
+              )}
             />
           </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <ChartModeToggle mode={mode} onChange={setMode} />
         </div>
       </Section>
     </div>

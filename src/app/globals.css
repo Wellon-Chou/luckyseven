@@ -124,6 +124,35 @@ html.dark input {
 }
 } /* @media screen — dark theme is not applied when printing */
 
+/* ── 影子数字 (shadow-numbers) chart palette ────────────────────────────────
+   A teal tint applied to the diagram in shadow mode so it's clearly distinct
+   from the amber (light) / purple (dark) normal mode. Only the SVG picks these
+   up (via --chart-*); the numbers above the diagram are unaffected. */
+.chart-shadow {
+  --chart-stroke: #1e40af;
+  --chart-line: #2563eb;
+  --chart-text: #1e40af;
+  --chart-root: #1e3a8a;
+  --chart-fill-1: #dbeafe;
+  --chart-fill-2: #bfdbfe;
+  --chart-fill-3: #93c5fd;
+  --chart-shadow: #bfdbfe;
+  --chart-flood: #2563eb;
+}
+@media screen {
+  html.dark .chart-shadow {
+    --chart-stroke: #dbeafe;
+    --chart-line: #93c5fd;
+    --chart-text: #dbeafe;
+    --chart-root: #ffffff;
+    --chart-fill-1: #172554;
+    --chart-fill-2: #1e3a8a;
+    --chart-fill-3: #1d4ed8;
+    --chart-shadow: #0a1430;
+    --chart-flood: #3b82f6;
+  }
+}
+
 /* Gentle cross-fade when switching themes */
 body,
 .section-card,
