@@ -90,6 +90,13 @@ create policy "insert own blueprints"
   to authenticated
   with check (user_id = auth.uid());
 
+drop policy if exists "update own blueprints" on public.blueprints;
+create policy "update own blueprints"
+  on public.blueprints for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
 drop policy if exists "delete own blueprints" on public.blueprints;
 create policy "delete own blueprints"
   on public.blueprints for delete

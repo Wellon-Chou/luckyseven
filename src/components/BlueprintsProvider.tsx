@@ -18,6 +18,7 @@ type BlueprintsContextValue = {
   error: string | null;
   refresh: () => Promise<void>;
   save: (name: string, birthDate: string) => Promise<{ error: string | null }>;
+  update: (id: string, birthDate: string) => Promise<{ error: string | null }>;
   remove: (id: string) => Promise<void>;
 };
 
@@ -72,6 +73,19 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
     [user, records.length],
   );
 
+  const update = useCallback(async (id: string, birthDate: string) => {
+    if (!supabase) return { error: "服务尚未配置。" };
+    const { data, error } = await supabase
+      .from("blueprints")
+      .update({ birth_date: birthDate })
+      .eq("id", id)
+      .select(COLUMNS)
+      .single();
+    if (error) return { error: error.message };
+    if (data) setRecords((prev) => prev.map((r) => (r.id === id ? (data as Blueprint) : r)));
+    return { error: null };
+  }, []);
+
   const remove = useCallback(async (id: string) => {
     if (!supabase) return;
     const { error } = await supabase.from("blueprints").delete().eq("id", id);
@@ -79,7 +93,7 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <BlueprintsContext.Provider value={{ records, loading, error, refresh, save, remove }}>
+    <BlueprintsContext.Provider value={{ records, loading, error, refresh, save, update, remove }}>
       {children}
     </BlueprintsContext.Provider>
   );

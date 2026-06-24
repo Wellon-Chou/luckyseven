@@ -33,12 +33,24 @@ export default function Home() {
   const birthDate = birthDatePersonalDiagram;
   const chart = personalChart;
   const { user, openModal } = useAuth();
-  const { save, records } = useBlueprints();
+  const { save, update, records } = useBlueprints();
   const [saving, setSaving] = useState(false);
   const [savingRecord, setSavingRecord] = useState(false);
   const [recordNotice, setRecordNotice] = useState<string | null>(null);
-  // Already saved if a record with this name exists — then the button is disabled.
-  const alreadySaved = !!name.trim() && records.some((r) => r.name.trim() === name.trim());
+  // Match a saved record by name. Same birth date → already saved (disabled);
+  // different birth date → offer to update it ("更新"); no match → save new.
+  const trimmedName = name.trim();
+  const match = trimmedName ? records.find((r) => r.name.trim() === trimmedName) : undefined;
+  const alreadySaved = !!match && match.birth_date === birthDate;
+  const canUpdate = !!match && match.birth_date !== birthDate;
+  // Hint shown under the buttons: login is required first, then birth date, then name.
+  const inputHint = !user
+    ? "请先登录以使用此功能"
+    : !birthDate
+      ? "请先输入出生日期"
+      : !name.trim()
+        ? "请先输入姓名"
+        : null;
   const summaryRef = useRef<AiSummaryHandle>(null);
 
   const handleSavePdf = async () => {
@@ -70,7 +82,9 @@ export default function Home() {
     }
     setSavingRecord(true);
     setRecordNotice(null);
-    const { error } = await save(name, birthDate);
+    // Update the existing record's birth date if the name already exists,
+    // otherwise save a new record.
+    const { error } = match ? await update(match.id, birthDate) : await save(name, birthDate);
     setSavingRecord(false);
     // On success the button disables itself (name now in the list); only surface
     // errors.
@@ -123,8 +137,8 @@ export default function Home() {
         <button
           type="button"
           onClick={handleSavePdf}
-          disabled={!name || !birthDate || saving}
-          title={!name || !birthDate ? "请先输入姓名和出生日期" : undefined}
+          disabled={!user || !name || !birthDate || saving}
+          title={!user ? "请先登录" : !name || !birthDate ? "请先输入姓名和出生日期" : undefined}
           className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-amber-500"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -137,22 +151,31 @@ export default function Home() {
         <button
           type="button"
           onClick={handleSaveRecord}
-          disabled={!name || !birthDate || savingRecord || alreadySaved}
+          disabled={!user || !name || !birthDate || savingRecord || alreadySaved}
           title={
-            alreadySaved
-              ? "该姓名已存档"
-              : !name || !birthDate
-                ? "请先输入姓名和出生日期"
-                : undefined
+            !user
+              ? "请先登录"
+              : alreadySaved
+                ? "该姓名已存档"
+                : canUpdate
+                  ? "更新此姓名的出生日期"
+                  : !name || !birthDate
+                    ? "请先输入姓名和出生日期"
+                    : undefined
           }
           className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-6 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-900 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
           </svg>
-          {savingRecord ? "保存中…" : alreadySaved ? "已存档" : "保存记录"}
+          {savingRecord ? "保存中…" : alreadySaved ? "已存档" : canUpdate ? "更新" : "保存记录"}
         </button>
       </div>
+      {inputHint && (
+        <p className="pt-2 text-center text-xs font-medium text-red-600 print:hidden">
+          {inputHint}
+        </p>
+      )}
       {recordNotice && (
         <p className="pt-2 text-center text-sm font-medium text-amber-700 print:hidden">
           {recordNotice}
