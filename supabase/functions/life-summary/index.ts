@@ -1,8 +1,8 @@
-// Supabase Edge Function (Deno) — generates the 总体故事 with Groq (free tier,
-// no credit card). The API key lives only here, never in the browser.
+// Supabase Edge Function (Deno) — generates the 总体故事 with DeepSeek (V4 Flash).
+// The API key lives only here, never in the browser.
 //
-// Get a free API key:  https://console.groq.com/keys
-// Set the secret:      supabase secrets set GROQ_API_KEY=<your key>
+// Get an API key:      https://platform.deepseek.com/api_keys
+// Set the secret:      supabase secrets set DEEPSEEK_API_KEY=<your key>
 // Deploy:              supabase functions deploy life-summary
 //
 // 总体故事 is a FREE feature: no login or subscription is required. The client
@@ -14,7 +14,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@^2";
 
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+const DEEPSEEK_MODEL = "deepseek-v4-flash";
 // Bump when the prompt / length requirement changes so cached summaries (keyed
 // by this + the source) are regenerated instead of serving the old shorter text.
 const PROMPT_VERSION = "v3";
@@ -233,17 +233,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    const apiKey = Deno.env.get("GROQ_API_KEY");
-    if (!apiKey) return json({ error: "GROQ_API_KEY 未配置。" }, 500);
+    const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
+    if (!apiKey) return json({ error: "DEEPSEEK_API_KEY 未配置。" }, 500);
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const res = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        model: DEEPSEEK_MODEL,
         temperature: 0.9,
         max_tokens: 2048,
         messages: [
@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
 
     if (!res.ok) {
       const detail = await res.text();
-      return json({ error: `Groq 调用失败：${res.status} ${detail}` }, 502);
+      return json({ error: `DeepSeek 调用失败：${res.status} ${detail}` }, 502);
     }
 
     const data = await res.json();
