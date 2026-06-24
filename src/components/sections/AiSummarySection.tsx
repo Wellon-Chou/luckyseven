@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Section, EmptyHint } from "../Section";
 import { type Chart } from "../../lib/numerology";
 import { supabase } from "../../lib/supabase";
@@ -12,9 +12,12 @@ const btnClass =
 
 // Client-side cache so a previously generated story for the same chart shows
 // instantly and for free on repeat clicks (the server caches too — this just
-// avoids the round-trip).
+// avoids the round-trip). Entries "decay" after CACHE_TTL_MS: a click after that
+// regenerates a fresh story. The cache only exists to stop rapid repeat clicks.
 const CACHE_KEY = "life-summary-cache";
-type CacheMap = Record<string, string>;
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+type CacheEntry = { text: string; ts: number };
+type CacheMap = Record<string, CacheEntry>;
 function loadCache(): CacheMap {
   try {
     return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}") as CacheMap;
@@ -29,9 +32,12 @@ function saveCache(map: CacheMap) {
     /* ignore unavailable storage */
   }
 }
-// A stable key from the chart fields that determine the summary.
+// A stable key from the chart fields that determine the summary. The version
+// prefix is bumped alongside the server's PROMPT_VERSION so a prompt/length
+// change invalidates old cached summaries instead of showing the previous text.
 function chartKey(chart: Chart): string {
   return JSON.stringify([
+    "v3",
     chart.rootNumber,
     chart.storyNumbers,
     chart.uniqueStoryNumbers,
@@ -51,6 +57,9 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
   const [story, setStory] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Synchronous guard against spam: blocks a second request before `busy` (state)
+  // has re-rendered to disable the button, so rapid clicks can't double-bill.
+  const inFlight = useRef(false);
 
   // A previously generated story belongs to the old birth date — clear it (and
   // any error) whenever the date changes, so it can't be mistaken for the new one.
@@ -59,36 +68,39 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
     setError(null);
   }, [birthDate]);
 
-  const generate = async (force = false) => {
+  const generate = async () => {
     if (!supabase) {
       setError("AI 服务尚未配置。");
       return;
     }
     const key = chartKey(chart);
-    if (!force) {
-      const cached = loadCache()[key];
-      if (cached) {
-        setStory(cached);
-        setError(null);
-        return; // repeat — free, instant, no network
-      }
+    // Serve the cached summary while it's still fresh — rapid repeat clicks never
+    // regenerate or cost tokens. Older than the TTL → fall through and regenerate
+    // a new one to replace it.
+    const entry = loadCache()[key];
+    if (entry && Date.now() - entry.ts < CACHE_TTL_MS) {
+      setStory(entry.text);
+      setError(null);
+      return;
     }
+    if (inFlight.current) return; // a generation is already running — ignore spam clicks
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
       // Send only the chart (the computed numbers); the Edge Function reads the
-      // source lines with the service role and caches the result (force =
-      // "重新生成" bypasses the cache to make a fresh one). Free — no login/quota.
+      // source lines with the service role and caches the result. Free — no
+      // login/quota.
       const { data, error: fnError } = await supabase.functions.invoke<{ text: string }>(
         "life-summary",
-        { body: { chart, force } },
+        { body: { chart } },
       );
       if (fnError) throw fnError;
       const text = data?.text ?? "";
       setStory(text);
       if (text) {
         const map = loadCache();
-        map[key] = text;
+        map[key] = { text, ts: Date.now() };
         saveCache(map);
       }
     } catch (e) {
@@ -106,6 +118,7 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
       }
       setError(msg);
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
@@ -126,7 +139,9 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
           {story ? (
             <div className={cardClass}>
               <p className={bodyClass}>{story}</p>
-              <button type="button" onClick={() => generate(true)} disabled={busy} className={`mt-4 ${btnClass} print:hidden`}>
+              {/* Within 30 min this re-shows the cached story (anti-spam); after
+                  that a click regenerates a fresh one. */}
+              <button type="button" onClick={() => generate()} disabled={busy} className={`mt-4 ${btnClass} print:hidden`}>
                 {busy ? "生成中…" : "重新生成"}
               </button>
             </div>

@@ -15,6 +15,12 @@
 import { createClient } from "npm:@supabase/supabase-js@^2";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
+// Bump when the prompt / length requirement changes so cached summaries (keyed
+// by this + the source) are regenerated instead of serving the old shorter text.
+const PROMPT_VERSION = "v3";
+// Cached summaries "decay": after this long, the next request regenerates a fresh
+// one. The cache only exists to stop rapid repeat generations for the same chart.
+const CACHE_TTL_MS = 30 * 60 * 1000;
 
 const SYSTEM_PROMPT =
   "你是一位资深的生命灵数解读师。根据用户命盘各部分的要点，撰写一段连贯、温暖、个性化的「总体故事」。" +
@@ -23,7 +29,8 @@ const SYSTEM_PROMPT =
   "在「数字故事」中，若某个数字标注「出现 N 次」，代表该性格特质越强烈、越突出，" +
   "出现次数越多越要在故事中着重强调、加重描写。" +
   "要求：用简体中文；把要点自然融合成一个完整的人生故事，而不是逐条罗列；" +
-  "语气真诚、鼓励、贴近读者；约 200–300 字；只输出故事正文，不要标题、不要要点列表。";
+  "语气真诚、鼓励、贴近读者；篇幅控制在 400–600 字之间（不少于 400 字，不超过 600 字）；" +
+  "只输出故事正文，不要标题、不要要点列表。";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -209,7 +216,7 @@ Deno.serve(async (req) => {
     const source = collectSource(buildContentData((rows ?? []) as ContentRow[]), chart);
     if (!source.trim()) return json({ error: "没有可用的内容。" }, 400);
 
-    const sourceHash = await sha256(source);
+    const sourceHash = await sha256(`${PROMPT_VERSION}|${source}`);
 
     // Cache: a previously generated summary for the same source is returned for
     // free, so repeat requests cost nothing. (总体故事 is a free feature — no login
@@ -217,10 +224,13 @@ Deno.serve(async (req) => {
     if (!force) {
       const { data: hit } = await supa
         .from("summary_cache")
-        .select("text")
+        .select("text, created_at")
         .eq("source_hash", sourceHash)
         .maybeSingle();
-      if (hit?.text) return json({ text: hit.text, cached: true });
+      // Only serve the cache while it's still fresh; older than the TTL → regenerate.
+      if (hit?.text && Date.now() - new Date(hit.created_at).getTime() < CACHE_TTL_MS) {
+        return json({ text: hit.text, cached: true });
+      }
     }
 
     const apiKey = Deno.env.get("GROQ_API_KEY");
@@ -235,7 +245,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: GROQ_MODEL,
         temperature: 0.9,
-        max_tokens: 1024,
+        max_tokens: 2048,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
@@ -254,9 +264,11 @@ Deno.serve(async (req) => {
     const data = await res.json();
     const text: string = data?.choices?.[0]?.message?.content ?? "";
 
-    // Cache the result (overwriting on a forced regenerate).
+    // Cache the result with a fresh timestamp (so the TTL restarts).
     if (text) {
-      await supa.from("summary_cache").upsert({ source_hash: sourceHash, text });
+      await supa
+        .from("summary_cache")
+        .upsert({ source_hash: sourceHash, text, created_at: new Date().toISOString() });
     }
 
     return json({ text });
