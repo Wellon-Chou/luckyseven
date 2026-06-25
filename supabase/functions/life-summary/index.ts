@@ -17,7 +17,7 @@ import { createClient } from "npm:@supabase/supabase-js@^2";
 const DEEPSEEK_MODEL = "deepseek-v4-flash";
 // Bump when the prompt / length requirement changes so cached summaries (keyed
 // by this + the source) are regenerated instead of serving the old shorter text.
-const PROMPT_VERSION = "v3";
+const PROMPT_VERSION = "v4";
 // Cached summaries "decay": after this long, the next request regenerates a fresh
 // one. The cache only exists to stop rapid repeat generations for the same chart.
 const CACHE_TTL_MS = 30 * 60 * 1000;
@@ -29,7 +29,9 @@ const SYSTEM_PROMPT =
   "在「数字故事」中，若某个数字标注「出现 N 次」，代表该性格特质越强烈、越突出，" +
   "出现次数越多越要在故事中着重强调、加重描写。" +
   "要求：用简体中文；把要点自然融合成一个完整的人生故事，而不是逐条罗列；" +
-  "语气真诚、鼓励、贴近读者；篇幅控制在 400–600 字之间（不少于 400 字，不超过 600 字）；" +
+  "不要在正文中出现任何具体数字，只描述这些数字所代表的性格特质，而不提及数字本身；" +
+  "保持直接、简明，不要堆砌华丽辞藻或添加多余细节；" +
+  "语气真诚、贴近读者；篇幅控制在 400–600 字之间（不少于 400 字，不超过 600 字）；" +
   "只输出故事正文，不要标题、不要要点列表。";
 
 const corsHeaders = {

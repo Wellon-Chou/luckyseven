@@ -37,7 +37,7 @@ function saveCache(map: CacheMap) {
 // change invalidates old cached summaries instead of showing the previous text.
 function chartKey(chart: Chart): string {
   return JSON.stringify([
-    "v3",
+    "v4",
     chart.rootNumber,
     chart.storyNumbers,
     chart.uniqueStoryNumbers,
