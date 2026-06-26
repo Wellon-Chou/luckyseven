@@ -18,7 +18,7 @@ export const PLANETS_ORDER = [
   "冥王星",
 ] as const;
 
-const PLANET_COMBOS: Record<string, string[]> = {
+export const PLANET_COMBOS: Record<string, string[]> = {
   水星: ["14", "41", "67", "76", "39", "93", "28", "82"],
   金星: ["13", "31", "68", "86", "49", "94", "27", "72"],
   火星: ["17", "71", "89", "98", "46", "64", "23", "32"],

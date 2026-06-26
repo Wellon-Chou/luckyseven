@@ -267,6 +267,19 @@ export function SectionNav() {
                 </div>
               )}
             </div>
+
+            {/* 记忆训练 — a standalone game page, listed below 蓝图存档. */}
+            <Link
+              href="/memory"
+              onClick={() => setLockPopup(null)}
+              className={`block rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                pathname === "/memory"
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "text-amber-800 hover:bg-amber-100 hover:text-amber-900"
+              }`}
+            >
+              记忆训练
+            </Link>
           </div>
         </div>
       ) : (
