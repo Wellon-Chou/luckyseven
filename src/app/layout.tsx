@@ -43,6 +43,18 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
+        {/* Redirect http→https as early as possible. GitHub Pages serves a valid
+            cert, but until "Enforce HTTPS" can be enabled it doesn't auto-redirect,
+            so an http visitor would sit on an insecure page with no padlock. This
+            bounces them to https before anything else loads. Skips localhost so
+            local dev over http still works. Becomes a no-op once GitHub's own
+            redirect is active. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var l=window.location;if(l.protocol==='http:'&&l.hostname!=='localhost'&&l.hostname!=='127.0.0.1'){l.replace('https://'+l.host+l.pathname+l.search+l.hash)}}catch(e){}})()",
+          }}
+        />
         {/* Apply the saved theme before paint so dark users don't see a light flash. */}
         <script
           dangerouslySetInnerHTML={{
