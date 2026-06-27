@@ -16,6 +16,9 @@ const btnClass =
 // regenerates a fresh story. The cache only exists to stop rapid repeat clicks.
 const CACHE_KEY = "life-summary-cache";
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+// After a forced 重新生成, the button is locked for this long.
+const REGEN_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+const REGEN_KEY = "life-summary-regen-at";
 type CacheEntry = { text: string; ts: number };
 type CacheMap = Record<string, CacheEntry>;
 function loadCache(): CacheMap {
@@ -61,39 +64,60 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
   // has re-rendered to disable the button, so rapid clicks can't double-bill.
   const inFlight = useRef(false);
 
+  // Regenerate cooldown: `regenAt` (persisted) is when the last forced 重新生成
+  // happened; once set, the button locks until REGEN_COOLDOWN_MS later.
+  const [regenAt, setRegenAt] = useState<number | null>(null);
+  const [now, setNow] = useState(0);
+  // The cooldown warning only appears after the user clicks while locked.
+  const [showLockMsg, setShowLockMsg] = useState(false);
+  useEffect(() => {
+    const raw = localStorage.getItem(REGEN_KEY);
+    setRegenAt(raw ? Number(raw) : null);
+    setNow(Date.now());
+  }, []);
+  const regenLocked = regenAt != null && now - regenAt < REGEN_COOLDOWN_MS;
+  // Re-enable the button when the cooldown expires.
+  useEffect(() => {
+    if (regenAt == null) return;
+    const remaining = regenAt + REGEN_COOLDOWN_MS - Date.now();
+    if (remaining <= 0) return;
+    const id = setTimeout(() => setNow(Date.now()), remaining);
+    return () => clearTimeout(id);
+  }, [regenAt]);
+
   // A previously generated story belongs to the old birth date — clear it (and
   // any error) whenever the date changes, so it can't be mistaken for the new one.
   useEffect(() => {
     setStory(null);
     setError(null);
+    setShowLockMsg(false);
   }, [birthDate]);
 
-  const generate = async () => {
+  // `force` skips the cache to make a fresh summary (重新生成). Returns true if a
+  // story was produced (cache hit or fresh), false on error.
+  const generate = async (force = false): Promise<boolean> => {
     if (!supabase) {
       setError("AI 服务尚未配置。");
-      return;
+      return false;
     }
     const key = chartKey(chart);
-    // Serve the cached summary while it's still fresh — rapid repeat clicks never
-    // regenerate or cost tokens. Older than the TTL → fall through and regenerate
-    // a new one to replace it.
-    const entry = loadCache()[key];
-    if (entry && Date.now() - entry.ts < CACHE_TTL_MS) {
-      setStory(entry.text);
-      setError(null);
-      return;
+    if (!force) {
+      // Serve the fresh cached summary — repeat clicks never regenerate or cost.
+      const entry = loadCache()[key];
+      if (entry && Date.now() - entry.ts < CACHE_TTL_MS) {
+        setStory(entry.text);
+        setError(null);
+        return true;
+      }
     }
-    if (inFlight.current) return; // a generation is already running — ignore spam clicks
+    if (inFlight.current) return false; // a generation is already running
     inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
-      // Send only the chart (the computed numbers); the Edge Function reads the
-      // source lines with the service role and caches the result. Free — no
-      // login/quota.
       const { data, error: fnError } = await supabase.functions.invoke<{ text: string }>(
         "life-summary",
-        { body: { chart } },
+        { body: { chart, force } },
       );
       if (fnError) throw fnError;
       const text = data?.text ?? "";
@@ -103,6 +127,7 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
         map[key] = { text, ts: Date.now() };
         saveCache(map);
       }
+      return true;
     } catch (e) {
       // supabase-js reports non-2xx responses as a generic message and tucks the
       // function's real JSON body into error.context (a Response). Surface it.
@@ -117,9 +142,54 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
         }
       }
       setError(msg);
+      return false;
     } finally {
       inFlight.current = false;
       setBusy(false);
+    }
+  };
+
+  // Pull the current summary straight from the DB without generating — in case it
+  // was regenerated elsewhere (another device / user with the same chart) while
+  // this client's button is on cooldown.
+  const syncFromDb = async () => {
+    if (!supabase) return;
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke<{ text: string }>(
+        "life-summary",
+        { body: { chart, peek: true } },
+      );
+      if (fnError) return;
+      const text = data?.text ?? "";
+      if (text && text !== story) {
+        setStory(text);
+        const map = loadCache();
+        map[chartKey(chart)] = { text, ts: Date.now() };
+        saveCache(map);
+      }
+    } catch {
+      /* ignore — keep the current text */
+    }
+  };
+
+  // 重新生成: one fresh generation, then a 10-minute cooldown before the next.
+  const handleRegenerate = async () => {
+    if (busy) return;
+    if (regenLocked) {
+      setShowLockMsg(true); // surface the warning only on a click while locked
+      void syncFromDb(); // but still sync the displayed text with the database
+      return;
+    }
+    setShowLockMsg(false);
+    const ok = await generate(true);
+    if (ok) {
+      const ts = Date.now();
+      setRegenAt(ts);
+      try {
+        localStorage.setItem(REGEN_KEY, String(ts));
+      } catch {
+        /* ignore unavailable storage */
+      }
     }
   };
 
@@ -139,11 +209,19 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
           {story ? (
             <div className={cardClass}>
               <p className={bodyClass}>{story}</p>
-              {/* Within 30 min this re-shows the cached story (anti-spam); after
-                  that a click regenerates a fresh one. */}
-              <button type="button" onClick={() => generate()} disabled={busy} className={`mt-4 ${btnClass} print:hidden`}>
+              <button
+                type="button"
+                onClick={handleRegenerate}
+                disabled={busy}
+                className={`mt-4 ${btnClass} print:hidden`}
+              >
                 {busy ? "生成中…" : "重新生成"}
               </button>
+              {showLockMsg && regenLocked && (
+                <p className="mt-3 text-sm font-medium text-red-600 print:hidden">
+                  重新生成次数过多，请稍后再试
+                </p>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-start gap-3">

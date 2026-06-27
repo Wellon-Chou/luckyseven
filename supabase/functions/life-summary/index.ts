@@ -201,7 +201,11 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
-    const { chart, force } = (await req.json()) as { chart?: Chart; force?: boolean };
+    const { chart, force, peek } = (await req.json()) as {
+      chart?: Chart;
+      force?: boolean;
+      peek?: boolean; // read the current DB summary without generating
+    };
     if (!chart) return json({ error: "缺少命盘数据。" }, 400);
 
     // Read the source lines server-side with the service role (bypasses RLS), so
@@ -219,6 +223,18 @@ Deno.serve(async (req) => {
     if (!source.trim()) return json({ error: "没有可用的内容。" }, 400);
 
     const sourceHash = await sha256(`${PROMPT_VERSION}|${source}`);
+
+    // Peek: return the current DB summary (any age) without generating. Used to
+    // sync a client whose own 重新生成 is on cooldown but the text may have been
+    // regenerated elsewhere.
+    if (peek) {
+      const { data: hit } = await supa
+        .from("summary_cache")
+        .select("text")
+        .eq("source_hash", sourceHash)
+        .maybeSingle();
+      return json({ text: hit?.text ?? "", cached: true });
+    }
 
     // Cache: a previously generated summary for the same source is returned for
     // free, so repeat requests cost nothing. (总体故事 is a free feature — no login

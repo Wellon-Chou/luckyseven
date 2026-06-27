@@ -82,6 +82,8 @@ export function SectionNav() {
   const { setName, setbirthDatePersonalDiagram } = useInput();
   const { records, loading: recordsLoading, refresh, remove } = useBlueprints();
   const [archiveOpen, setArchiveOpen] = useState(false);
+  // 记忆训练 is a category that expands to its games (like 蓝图存档).
+  const [memoryOpen, setMemoryOpen] = useState(false);
 
   const toggleArchive = () => {
     setLockPopup(null);
@@ -99,8 +101,11 @@ export function SectionNav() {
     router.push("/");
   };
 
-  // Drop the popup whenever we navigate.
-  useEffect(() => setLockPopup(null), [pathname]);
+  // Drop the popup whenever we navigate; auto-expand 记忆训练 when on one of its games.
+  useEffect(() => {
+    setLockPopup(null);
+    if (pathname === "/memory") setMemoryOpen(true);
+  }, [pathname]);
 
   // Collapse when clicking outside the nav — but not when dragging (e.g. text
   // selection), detected by how far the pointer moved between press and release.
@@ -290,35 +295,74 @@ export function SectionNav() {
               )}
             </div>
 
-            {/* 记忆训练 — a standalone game page (至尊 tier), listed below 蓝图存档. */}
-            {memoryLocked ? (
-              <button
-                type="button"
-                onClick={(e) => onLockedClick("memory", e)}
-                title="订阅后解锁"
-                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-amber-100/60 ${
-                  lockPopup?.href === "memory" ? "bg-amber-100/60 text-amber-800/70" : "text-amber-800/40"
-                }`}
-              >
-                <span>记忆训练</span>
-                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="3" y="11" width="18" height="11" rx="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-              </button>
-            ) : (
-              <Link
-                href="/memory"
-                onClick={() => setLockPopup(null)}
-                className={`block rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                  pathname === "/memory"
-                    ? "bg-amber-500 text-white shadow-sm"
-                    : "text-amber-800 hover:bg-amber-100 hover:text-amber-900"
-                }`}
-              >
-                记忆训练
-              </Link>
-            )}
+            {/* 记忆训练 — a category (至尊 tier) that expands to its games. */}
+            <div>
+              {memoryLocked ? (
+                <button
+                  type="button"
+                  onClick={(e) => onLockedClick("memory", e)}
+                  title="订阅后解锁"
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-amber-100/60 ${
+                    lockPopup?.href === "memory" ? "bg-amber-100/60 text-amber-800/70" : "text-amber-800/40"
+                  }`}
+                >
+                  <span>记忆训练</span>
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLockPopup(null);
+                      setMemoryOpen((v) => !v);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                      memoryOpen
+                        ? "bg-amber-100/60 text-amber-900"
+                        : "text-amber-800 hover:bg-amber-100 hover:text-amber-900"
+                    }`}
+                  >
+                    <span>记忆训练</span>
+                    <svg
+                      className={`h-3.5 w-3.5 transition-transform ${memoryOpen ? "rotate-90" : ""}`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                  </button>
+
+                  {memoryOpen && (
+                    <div className="mb-1 mt-1.5 pl-2">
+                      <ul className="space-y-1 border-l-2 border-amber-200 pl-3">
+                        <li>
+                          <Link
+                            href="/memory"
+                            onClick={() => setLockPopup(null)}
+                            className={`block rounded-md py-1 text-sm transition ${
+                              pathname === "/memory"
+                                ? "font-semibold text-amber-900"
+                                : "text-amber-700/80 hover:font-semibold hover:text-amber-900"
+                            }`}
+                          >
+                            八大星属记忆训练
+                          </Link>
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       ) : (
