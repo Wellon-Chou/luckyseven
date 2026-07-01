@@ -3,7 +3,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Section, EmptyHint } from "../Section";
 import { type Chart } from "../../lib/numerology";
-import { supabase } from "../../lib/supabase";
+import { supabase, supabaseUrl, supabaseAnonKey } from "../../lib/supabase";
 
 const cardClass = "subcard rounded-xl border border-amber-100 bg-amber-50/60 p-5";
 const bodyClass = "whitespace-pre-line leading-relaxed text-zinc-700";
@@ -96,7 +96,7 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
   // `force` skips the cache to make a fresh summary (重新生成). Returns true if a
   // story was produced (cache hit or fresh), false on error.
   const generate = async (force = false): Promise<boolean> => {
-    if (!supabase) {
+    if (!supabase || !supabaseUrl || !supabaseAnonKey) {
       setError("AI 服务尚未配置。");
       return false;
     }
@@ -115,32 +115,76 @@ export const AiSummarySection = forwardRef<AiSummaryHandle, { birthDate: string;
     setBusy(true);
     setError(null);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke<{ text: string }>(
-        "life-summary",
-        { body: { chart, force } },
-      );
-      if (fnError) throw fnError;
-      const text = data?.text ?? "";
-      setStory(text);
-      if (text) {
+      // Call the function with a raw fetch so we can read the *streamed* response and
+      // render the story as it's written (supabase-js's invoke() buffers the whole
+      // body). Retry ONLY the initial connection — once the stream starts we never
+      // retry, so a mid-stream drop can't trigger a second (billable) generation.
+      const fnUrl = `${supabaseUrl}/functions/v1/life-summary`;
+      const headers = {
+        "content-type": "application/json",
+        apikey: supabaseAnonKey,
+        authorization: `Bearer ${supabaseAnonKey}`,
+      };
+      let resp: Response | null = null;
+      let netErr: unknown = null;
+      for (let attempt = 0; attempt <= 2; attempt++) {
+        try {
+          resp = await fetch(fnUrl, { method: "POST", headers, body: JSON.stringify({ chart, force }) });
+          netErr = null;
+          break;
+        } catch (e) {
+          netErr = e; // couldn't reach the function — usually transient
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+        }
+      }
+      if (!resp) throw netErr ?? new TypeError("network");
+      if (!resp.ok) {
+        // Non-2xx → surface the function's (Chinese) error body if present.
+        let msg = "生成失败，请稍后再试。";
+        try {
+          const body = await resp.json();
+          if (body?.error) msg = body.error;
+        } catch {
+          /* keep the generic message */
+        }
+        throw new Error(msg);
+      }
+
+      let finalText = "";
+      const ct = resp.headers.get("content-type") ?? "";
+      if (ct.includes("application/json") || !resp.body) {
+        // Cache hit (or a non-streamed reply) — one-shot text.
+        finalText = (await resp.json())?.text ?? "";
+        setStory(finalText);
+      } else {
+        // Streamed generation — append tokens to the displayed story as they arrive.
+        const reader = resp.body.getReader();
+        const dec = new TextDecoder();
+        let acc = "";
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc += dec.decode(value, { stream: true });
+          setStory(acc);
+        }
+        finalText = acc;
+      }
+
+      if (finalText) {
         const map = loadCache();
-        map[key] = { text, ts: Date.now() };
+        map[key] = { text: finalText, ts: Date.now() };
         saveCache(map);
       }
       return true;
     } catch (e) {
-      // supabase-js reports non-2xx responses as a generic message and tucks the
-      // function's real JSON body into error.context (a Response). Surface it.
-      let msg = e instanceof Error ? e.message : "生成失败，请稍后再试。";
-      const ctx = (e as { context?: Response })?.context;
-      if (ctx && typeof ctx.json === "function") {
-        try {
-          const body = await ctx.json();
-          if (body?.error) msg = body.error;
-        } catch {
-          /* body wasn't JSON — keep the generic message */
-        }
-      }
+      // A TypeError from fetch/stream = the network dropped; anything else is a
+      // function error whose (Chinese) message is already on the Error.
+      const msg =
+        e instanceof TypeError
+          ? "网络连接失败，请稍后重试。"
+          : e instanceof Error
+            ? e.message
+            : "生成失败，请稍后再试。";
       setError(msg);
       return false;
     } finally {

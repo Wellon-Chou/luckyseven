@@ -7,6 +7,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+// Exposed so the AI-summary section can hit the Edge Function with a raw fetch and
+// read the *streamed* response (supabase-js's invoke() buffers the whole body).
+export const supabaseUrl = url;
+export const supabaseAnonKey = anonKey;
+
 // True once both env vars are present. When false, the app still builds and
 // runs — the login modal just reports that auth isn't configured yet.
 export const isSupabaseConfigured = Boolean(url && anonKey);

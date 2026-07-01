@@ -265,6 +265,7 @@ Deno.serve(async (req) => {
         // Disable DeepSeek's default chain-of-thought: this is a creative writing
         // task that needs no reasoning, and thinking mode roughly doubles latency.
         thinking: { type: "disabled" },
+        stream: true, // stream tokens back so the client renders text as it's written
         temperature: 0.9,
         max_tokens: 2048,
         messages: [
@@ -277,22 +278,65 @@ Deno.serve(async (req) => {
       }),
     });
 
-    if (!res.ok) {
+    if (!res.ok || !res.body) {
       const detail = await res.text();
       return json({ error: `DeepSeek 调用失败：${res.status} ${detail}` }, 502);
     }
 
-    const data = await res.json();
-    const text: string = data?.choices?.[0]?.message?.content ?? "";
+    // Stream DeepSeek's tokens straight to the client as plain text (so the story
+    // appears as it's written), while accumulating the full text to cache once at
+    // the end. DeepSeek sends OpenAI-style SSE: lines of `data: {json}` with the
+    // token in choices[0].delta.content, terminated by `data: [DONE]`.
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const upstream = res.body.getReader();
+    let full = "";
+    let buffer = "";
 
-    // Cache the result with a fresh timestamp (so the TTL restarts).
-    if (text) {
-      await supa
-        .from("summary_cache")
-        .upsert({ source_hash: sourceHash, text, created_at: new Date().toISOString() });
-    }
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          for (;;) {
+            const { done, value } = await upstream.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? ""; // keep any incomplete trailing line
+            for (const line of lines) {
+              const t = line.trim();
+              if (!t.startsWith("data:")) continue;
+              const payload = t.slice(5).trim();
+              if (!payload || payload === "[DONE]") continue;
+              try {
+                const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content ?? "";
+                if (delta) {
+                  full += delta;
+                  controller.enqueue(encoder.encode(delta));
+                }
+              } catch {
+                /* ignore keep-alive / non-JSON lines */
+              }
+            }
+          }
+          // Cache the finished summary once (a fresh timestamp restarts the TTL).
+          if (full) {
+            await supa
+              .from("summary_cache")
+              .upsert({ source_hash: sourceHash, text: full, created_at: new Date().toISOString() });
+          }
+          controller.close();
+        } catch (e) {
+          controller.error(e);
+        }
+      },
+      cancel() {
+        upstream.cancel();
+      },
+    });
 
-    return json({ text });
+    return new Response(stream, {
+      headers: { ...corsHeaders, "content-type": "text/plain; charset=utf-8" },
+    });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
