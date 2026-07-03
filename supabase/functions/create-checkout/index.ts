@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     );
     const { data: row } = await admin
       .from("subscriptions")
-      .select("tier,stripe_customer_id")
+      .select("tier,stripe_customer_id,has_trialed")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -89,6 +89,10 @@ Deno.serve(async (req) => {
         .upsert({ user_id: user.id, stripe_customer_id: customerId }, { onConflict: "user_id" });
     }
 
+    // First-time subscribers get a 7-day free trial; anyone who has trialed before
+    // does not (the webhook sets has_trialed when a trial starts).
+    const giveTrial = !row?.has_trialed;
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -97,7 +101,13 @@ Deno.serve(async (req) => {
       cancel_url: cancelUrl ?? "",
       client_reference_id: user.id,
       // So the webhook can map the subscription back to this user.
-      subscription_data: { metadata: { user_id: user.id } },
+      subscription_data: {
+        metadata: { user_id: user.id },
+        ...(giveTrial ? { trial_period_days: 7 } : {}),
+      },
+      // Always collect the card — even during the $0 trial — so a trial can't be
+      // farmed with throwaway emails, and it converts automatically on day 7.
+      payment_method_collection: "always",
       allow_promotion_codes: true,
     });
 

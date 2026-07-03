@@ -6,6 +6,7 @@ create table if not exists public.subscriptions (
   stripe_customer_id     text,
   stripe_subscription_id text,
   current_period_end     timestamptz,
+  has_trialed            boolean not null default false,   -- has ever started a free trial
   updated_at             timestamptz not null default now()
 );
 
@@ -33,7 +34,7 @@ as $$
   select coalesce(
     (select tier from public.subscriptions
       where user_id = auth.uid()
-        and status = 'active'
+        and status in ('active', 'trialing')
         and (current_period_end is null or current_period_end > now())
       limit 1),
     0);
@@ -115,3 +116,14 @@ create table if not exists public.summary_cache (
 -- Only the Edge Function (service role) touches this; RLS on with no policies
 -- denies all direct client access.
 alter table public.summary_cache enable row level security;
+
+-- ── 9. TRIAL CARDS: card fingerprints that have already used a free trial, so the
+-- same physical card can't farm 7-day trials across multiple accounts/emails.
+-- Only the Stripe webhook (service role) writes/reads this; RLS on with no policy
+-- denies all direct client access.
+create table if not exists public.trial_cards (
+  fingerprint   text        primary key,
+  user_id       uuid        references auth.users(id) on delete set null,
+  first_used_at timestamptz not null default now()
+);
+alter table public.trial_cards enable row level security;

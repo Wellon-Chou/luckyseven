@@ -17,6 +17,8 @@ export default function SubscriptionPage() {
   const { busy, error, startCheckout, openPortal } = useBilling();
   const [notice, setNotice] = useState<"success" | "cancelled" | null>(null);
   const [isComp, setIsComp] = useState(false);
+  const [hasTrialed, setHasTrialed] = useState(false);
+  const [trialEndsAt, setTrialEndsAt] = useState<number | null>(null);
 
   // Returning from Stripe Checkout: show the notice once, and drop the ?checkout=
   // param so it can't reappear on a reload or when navigating away and back.
@@ -51,15 +53,23 @@ export default function SubscriptionPage() {
     async function check() {
       if (!supabase || !user) {
         setIsComp(false);
+        setHasTrialed(false);
+        setTrialEndsAt(null);
         return;
       }
       const { data } = await supabase
         .from("subscriptions")
-        .select("tier,stripe_customer_id")
+        .select("tier,stripe_customer_id,has_trialed,status,current_period_end")
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
       setIsComp((data?.tier ?? 0) > 0 && !data?.stripe_customer_id);
+      setHasTrialed(!!data?.has_trialed);
+      setTrialEndsAt(
+        data?.status === "trialing" && data?.current_period_end
+          ? new Date(data.current_period_end).getTime()
+          : null,
+      );
     }
     check();
     return () => {
@@ -89,7 +99,7 @@ export default function SubscriptionPage() {
 
       {notice === "success" && (
         <p className="mx-auto mb-6 max-w-md rounded-lg bg-green-50 px-4 py-3 text-center text-sm font-medium text-green-700">
-          订阅成功！正在更新您的方案…
+          订阅成功，正在确认您的试用资格…
         </p>
       )}
       {notice === "cancelled" && (
@@ -130,6 +140,11 @@ export default function SubscriptionPage() {
               </div>
               <p className="mt-1 text-sm text-zinc-500">{tier.tagline}</p>
               <p className="mt-4 text-2xl font-bold text-amber-900">{tier.price}</p>
+              {isCurrent && trialEndsAt && (
+                <p className="mt-1 text-xs font-semibold text-amber-600">
+                  试用中 · 剩余 {Math.max(0, Math.ceil((trialEndsAt - Date.now()) / 86400000))} 天
+                </p>
+              )}
 
               <ul className="mt-5 flex flex-1 flex-col gap-2.5">
                 {tier.features.map((f) => (
@@ -182,7 +197,7 @@ export default function SubscriptionPage() {
                     onClick={() => (level === 0 ? startCheckout(tier.level) : openPortal())}
                     className={primaryBtn}
                   >
-                    {busy ? "处理中…" : level === 0 ? "订阅" : "升级"}
+                    {busy ? "处理中…" : level === 0 ? (hasTrialed ? "订阅" : "开始 7 天免费试用（符合资格）") : "升级"}
                   </button>
                 ) : tier.level === 0 ? (
                   <button
@@ -212,6 +227,11 @@ export default function SubscriptionPage() {
       <p className="mt-6 text-center text-xs text-zinc-400">
         付款由 Stripe 安全处理。订阅后可随时升级、降级或取消。
       </p>
+      {user && !isComp && !hasTrialed && (
+        <p className="mt-2 text-center text-xs text-zinc-400">
+          新用户享 7 天免费试用，试用期间可随时取消、不收取费用；试用结束后按月自动续费。需绑定有效银行卡。
+        </p>
+      )}
     </div>
   );
 }

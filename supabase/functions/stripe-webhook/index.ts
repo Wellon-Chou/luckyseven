@@ -47,6 +47,51 @@ async function resolveUserId(sub: any): Promise<string | null> {
   }
 }
 
+// Enforce "one free trial per physical card": when a trial starts, look up the
+// card's fingerprint (stable across accounts/emails) and record it. If the same
+// card already trialed under a DIFFERENT user, end the trial now so it converts to
+// an immediate charge instead of a second free week. Fails open on any error — a
+// legitimate customer is never blocked because a lookup failed.
+// deno-lint-ignore no-explicit-any
+async function enforceTrialCard(sub: any, userId: string) {
+  try {
+    let pmId: string | null =
+      typeof sub.default_payment_method === "string"
+        ? sub.default_payment_method
+        : sub.default_payment_method?.id ?? null;
+    if (!pmId) {
+      const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+      if (customerId) {
+        const cust = await stripe.customers.retrieve(customerId);
+        // deno-lint-ignore no-explicit-any
+        pmId = (cust as any)?.invoice_settings?.default_payment_method ?? null;
+      }
+    }
+    if (!pmId) return; // no card visible yet — allow the trial
+    const pm = await stripe.paymentMethods.retrieve(pmId);
+    const fp = pm.card?.fingerprint ?? null;
+    if (!fp) return;
+
+    // Claim the fingerprint for this user. A unique-violation = it was used before.
+    const { error: insErr } = await admin
+      .from("trial_cards")
+      .insert({ fingerprint: fp, user_id: userId });
+    if (!insErr) return; // first use of this card — allow the trial
+
+    const { data: owner } = await admin
+      .from("trial_cards")
+      .select("user_id")
+      .eq("fingerprint", fp)
+      .maybeSingle();
+    if (owner?.user_id && owner.user_id !== userId) {
+      // Same card, different account → trial farming. End the trial immediately.
+      await stripe.subscriptions.update(sub.id, { trial_end: "now" });
+    }
+  } catch {
+    /* fail open — never block a real customer on an error here */
+  }
+}
+
 // deno-lint-ignore no-explicit-any
 async function syncSubscription(sub: any) {
   const userId = await resolveUserId(sub);
@@ -60,18 +105,24 @@ async function syncSubscription(sub: any) {
     ? new Date(sub.current_period_end * 1000).toISOString()
     : null;
 
-  await admin.from("subscriptions").upsert(
-    {
-      user_id: userId,
-      tier,
-      status,
-      stripe_customer_id: customerId,
-      stripe_subscription_id: sub.id,
-      current_period_end: periodEnd,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" },
-  );
+  // deno-lint-ignore no-explicit-any
+  const upsertData: Record<string, any> = {
+    user_id: userId,
+    tier,
+    status,
+    stripe_customer_id: customerId,
+    stripe_subscription_id: sub.id,
+    current_period_end: periodEnd,
+    updated_at: new Date().toISOString(),
+  };
+  // Mark that this user has started a trial (never reset once true), so
+  // create-checkout won't grant them another one later.
+  if (status === "trialing") upsertData.has_trialed = true;
+
+  await admin.from("subscriptions").upsert(upsertData, { onConflict: "user_id" });
+
+  // Enforce one free trial per physical card (across accounts / emails).
+  if (status === "trialing") await enforceTrialCard(sub, userId);
 }
 
 Deno.serve(async (req) => {
