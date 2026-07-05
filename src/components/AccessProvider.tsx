@@ -11,6 +11,7 @@ import { useAuth } from "./AuthProvider";
 type AccessContextValue = {
   level: number;
   loading: boolean;
+  isAdmin: boolean;
   refresh: () => void; // re-check after a subscription change (used in Phase 4)
 };
 
@@ -20,6 +21,7 @@ export function AccessProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [level, setLevel] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
@@ -34,6 +36,10 @@ export function AccessProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       setLevel(error || typeof data !== "number" ? 0 : data);
       setLoading(false);
+
+      const { data: admin, error: adminError } = await supabase.rpc("is_admin");
+      if (cancelled) return;
+      setIsAdmin(adminError || typeof admin !== "boolean" ? false : admin);
     }
     load();
     return () => {
@@ -44,7 +50,7 @@ export function AccessProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 
   return (
-    <AccessContext.Provider value={{ level, loading, refresh }}>
+    <AccessContext.Provider value={{ level, loading, isAdmin, refresh }}>
       {children}
     </AccessContext.Provider>
   );

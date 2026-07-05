@@ -41,6 +41,26 @@ as $$
 $$;
 grant execute on function public.current_access_level() to anon, authenticated;
 
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.subscriptions
+    where user_id = auth.uid()
+      and status in ('active', 'trialing')
+      and (current_period_end is null or current_period_end > now())
+      and coalesce(tier, 0) > 0
+      and stripe_customer_id is null
+  );
+$$;
+
+grant execute on function public.is_admin() to anon, authenticated;
+
 -- ── 4. Turn RLS ON (with it on and no policy, ALL access is denied) ─────────
 alter table public.subscriptions enable row level security;
 alter table public.content       enable row level security;
@@ -103,6 +123,54 @@ create policy "delete own blueprints"
   on public.blueprints for delete
   to authenticated
   using (user_id = auth.uid());
+
+-- ── 7b. BLUEPRINT FOLDERS: organise saved records into folders ───────────────
+create table if not exists public.blueprint_folders (
+  id         uuid        primary key default gen_random_uuid(),
+  user_id    uuid        not null references auth.users(id) on delete cascade default auth.uid(),
+  name       text        not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists blueprint_folders_user_id_idx
+  on public.blueprint_folders (user_id);
+
+alter table public.blueprint_folders enable row level security;
+
+drop policy if exists "read own blueprint folders" on public.blueprint_folders;
+create policy "read own blueprint folders"
+  on public.blueprint_folders for select
+  to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "insert own blueprint folders" on public.blueprint_folders;
+create policy "insert own blueprint folders"
+  on public.blueprint_folders for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "update own blueprint folders" on public.blueprint_folders;
+create policy "update own blueprint folders"
+  on public.blueprint_folders for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+drop policy if exists "delete own blueprint folders" on public.blueprint_folders;
+create policy "delete own blueprint folders"
+  on public.blueprint_folders for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+-- Nullable folder reference on saved records (null = uncategorised).
+alter table public.blueprints
+  add column if not exists folder_id uuid references public.blueprint_folders(id) on delete set null;
+
+create index if not exists blueprints_user_id_idx
+  on public.blueprints (user_id);
+
+create index if not exists blueprints_folder_id_idx
+  on public.blueprints (folder_id);
 
 -- ── 8. AI SUMMARY CACHE (总体故事 is a free feature — no login, no cap) ───────
 -- Global cache of generated summaries, keyed by a hash of the source material,

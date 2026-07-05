@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAccessLevel } from "./AccessProvider";
@@ -76,24 +76,48 @@ export function SectionNav() {
   // 记忆训练 needs the 至尊 plan (tier ≥ 3).
   const memoryLocked = !loading && level < 3;
 
-  // 蓝图存档 — the saved-records list (doesn't navigate; opens inline).
+  // 记忆训练 is a category that expands to its games.
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const router = useRouter();
   const { user, openModal } = useAuth();
   const { setName, setbirthDatePersonalDiagram } = useInput();
-  const { records, loading: recordsLoading, refresh, remove } = useBlueprints();
+  const { records, folders, loading: recordsLoading, refresh, refreshFolders } = useBlueprints();
   const [archiveOpen, setArchiveOpen] = useState(false);
-  // 记忆训练 is a category that expands to its games (like 蓝图存档).
-  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  const uncategorizedRecords = useMemo(
+    () => records.filter((r) => r.folder_id === null),
+    [records],
+  );
+  const folderGroups = useMemo(
+    () =>
+      folders.map((folder) => ({
+        folder,
+        records: records.filter((r) => r.folder_id === folder.id),
+      })),
+    [folders, records],
+  );
+  const hasRecords = records.length > 0;
 
   const toggleArchive = () => {
     setLockPopup(null);
     const next = !archiveOpen;
     setArchiveOpen(next);
-    if (next && user) refresh(); // refetch when opening
+    if (next && user) {
+      refresh();
+      refreshFolders();
+    }
   };
 
-  // Load a saved record back into the 个人蓝图 inputs and go to that page —
-  // leaving the side nav (and the archive list) open.
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   const loadRecord = (rec: Blueprint) => {
     setName(rec.name);
     setbirthDatePersonalDiagram(rec.birth_date);
@@ -101,10 +125,26 @@ export function SectionNav() {
     router.push("/");
   };
 
+  const Chevron = ({ open }: { open: boolean }) => (
+    <svg
+      className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "rotate-90" : ""}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  );
+
   // Drop the popup whenever we navigate; auto-expand 记忆训练 when on one of its games.
   useEffect(() => {
     setLockPopup(null);
     if (pathname === "/memory") setMemoryOpen(true);
+    if (pathname === "/archive") setArchiveOpen(true);
   }, [pathname]);
 
   // Collapse when clicking outside the nav — but not when dragging (e.g. text
@@ -209,15 +249,15 @@ export function SectionNav() {
               );
             })}
 
-            {/* 蓝图存档 — a saved-records list that opens inline (no navigation). */}
+            {/* 蓝图存档 — saved records grouped by folder. */}
             <div>
               {archiveLocked ? (
                 <button
                   type="button"
-                  onClick={(e) => onLockedClick("archive", e)}
+                  onClick={(e) => onLockedClick("/archive", e)}
                   title="订阅后解锁"
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-amber-100/60 ${
-                    lockPopup?.href === "archive" ? "bg-amber-100/60 text-amber-800/70" : "text-amber-800/40"
+                    lockPopup?.href === "/archive" ? "bg-amber-100/60 text-amber-800/70" : "text-amber-800/40"
                   }`}
                 >
                   <span>蓝图存档</span>
@@ -227,71 +267,111 @@ export function SectionNav() {
                   </svg>
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={toggleArchive}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                    archiveOpen
-                      ? "bg-amber-100/60 text-amber-900"
-                      : "text-amber-800 hover:bg-amber-100 hover:text-amber-900"
-                  }`}
-                >
-                  <span>蓝图存档</span>
-                  <svg
-                    className={`h-3.5 w-3.5 transition-transform ${archiveOpen ? "rotate-90" : ""}`}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
+                <>
+                  <button
+                    type="button"
+                    onClick={toggleArchive}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                      archiveOpen || pathname === "/archive"
+                        ? "bg-amber-100/60 text-amber-900"
+                        : "text-amber-800 hover:bg-amber-100 hover:text-amber-900"
+                    }`}
                   >
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
-                </button>
-              )}
+                    <span>蓝图存档</span>
+                    <Chevron open={archiveOpen} />
+                  </button>
 
-              {!archiveLocked && archiveOpen && (
-                <div className="mb-1 mt-1.5 pl-2">
-                  {!user ? (
-                    <button
-                      type="button"
-                      onClick={() => openModal()}
-                      className="py-1 text-left text-sm text-amber-700/80 underline underline-offset-2 transition hover:text-amber-900"
-                    >
-                      请先登录以查看存档
-                    </button>
-                  ) : recordsLoading ? (
-                    <p className="py-1 text-sm text-amber-700/60">加载中…</p>
-                  ) : records.length === 0 ? (
-                    <p className="py-1 text-sm text-amber-700/60">暂无存档</p>
-                  ) : (
-                    <ul className="space-y-1 border-l-2 border-amber-200 pl-3">
-                      {records.map((rec) => (
-                        <li key={rec.id} className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => loadRecord(rec)}
-                            title={`${rec.name} · ${rec.birth_date}`}
-                            className="min-w-0 flex-1 truncate py-1 text-left text-sm text-amber-700/80 transition hover:font-semibold hover:text-amber-900"
-                          >
-                            {rec.name}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => remove(rec.id)}
-                            aria-label="删除"
-                            title="删除"
-                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-amber-400 transition hover:bg-amber-100 hover:text-red-500"
-                          >
-                            ×
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                  {archiveOpen && (
+                    <div className="mb-1 mt-1.5 pl-2">
+                      {!user ? (
+                        <button
+                          type="button"
+                          onClick={() => openModal()}
+                          className="py-1 text-left text-sm text-amber-700/80 underline underline-offset-2 transition hover:text-amber-900"
+                        >
+                          请先登录以查看存档
+                        </button>
+                      ) : recordsLoading ? (
+                        <p className="py-1 text-sm text-amber-700/60">加载中…</p>
+                      ) : !hasRecords ? (
+                        <p className="py-1 text-sm text-amber-700/60">暂无存档</p>
+                      ) : (
+                        <div className="space-y-1 border-l-2 border-amber-200 pl-3">
+                          {folderGroups.map(
+                            ({ folder, records: groupRecords }) =>
+                              groupRecords.length > 0 && (
+                                <div key={folder.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleGroup(folder.id)}
+                                    className="flex w-full items-center justify-between gap-1 py-1 text-left text-xs font-semibold uppercase tracking-wider text-amber-700 transition hover:text-amber-900"
+                                  >
+                                    <span className="min-w-0 truncate">{folder.name}</span>
+                                    <Chevron open={!collapsedGroups.has(folder.id)} />
+                                  </button>
+                                  {!collapsedGroups.has(folder.id) && (
+                                    <ul className="space-y-0.5 pb-1 pl-1">
+                                      {groupRecords.map((rec) => (
+                                        <li key={rec.id}>
+                                          <button
+                                            type="button"
+                                            onClick={() => loadRecord(rec)}
+                                            title={rec.birth_date}
+                                            className="block w-full truncate py-1 text-left text-sm text-amber-700/80 transition hover:font-semibold hover:text-amber-900"
+                                          >
+                                            {rec.name}
+                                          </button>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
+                              ),
+                          )}
+                          {uncategorizedRecords.length > 0 && (
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => toggleGroup("uncategorized")}
+                                className="flex w-full items-center justify-between gap-1 py-1 text-left text-xs font-semibold uppercase tracking-wider text-amber-700 transition hover:text-amber-900"
+                              >
+                                <span>未分类</span>
+                                <Chevron open={!collapsedGroups.has("uncategorized")} />
+                              </button>
+                              {!collapsedGroups.has("uncategorized") && (
+                                <ul className="space-y-0.5 pb-1 pl-1">
+                                  {uncategorizedRecords.map((rec) => (
+                                    <li key={rec.id}>
+                                      <button
+                                        type="button"
+                                        onClick={() => loadRecord(rec)}
+                                        title={rec.birth_date}
+                                        className="block w-full truncate py-1 text-left text-sm text-amber-700/80 transition hover:font-semibold hover:text-amber-900"
+                                      >
+                                        {rec.name}
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <Link
+                        href="/archive"
+                        onClick={() => setLockPopup(null)}
+                        className={`mt-2 block w-full rounded-lg px-3 py-2 text-center text-sm font-semibold transition ${
+                          pathname === "/archive"
+                            ? "bg-amber-500 text-white shadow-sm"
+                            : "border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900"
+                        }`}
+                      >
+                        管理蓝图
+                      </Link>
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </div>
 

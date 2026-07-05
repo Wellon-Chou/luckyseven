@@ -1,0 +1,81 @@
+'use client';
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useBlueprints, type Blueprint, type BlueprintFolder } from "../BlueprintsProvider";
+import { useInput } from "../InputProvider";
+
+type BlueprintRecordCardProps = {
+  record: Blueprint;
+  folders: BlueprintFolder[];
+};
+
+export function BlueprintRecordCard({ record, folders }: BlueprintRecordCardProps) {
+  const router = useRouter();
+  const { setName, setbirthDatePersonalDiagram } = useInput();
+  const { remove, moveToFolder } = useBlueprints();
+  const [moving, setMoving] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
+
+  const loadRecord = () => {
+    setName(record.name);
+    setbirthDatePersonalDiagram(record.birth_date);
+    router.push("/");
+  };
+
+  const handleMove = async (folderId: string | null) => {
+    setMoving(true);
+    setMoveError(null);
+    const { error } = await moveToFolder(record.id, folderId);
+    setMoving(false);
+    if (error) setMoveError(error);
+  };
+
+  const folderName =
+    record.folder_id === null
+      ? "未分类"
+      : folders.find((f) => f.id === record.folder_id)?.name ?? "未知文件夹";
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-amber-200/70 bg-white p-4 shadow-sm ring-1 ring-amber-100/50 transition-shadow hover:shadow-md sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={loadRecord}
+          className="truncate text-left text-base font-semibold text-amber-900 transition hover:text-amber-700"
+        >
+          {record.name}
+        </button>
+        <p className="mt-0.5 font-mono text-sm tabular-nums text-amber-700/70">{record.birth_date}</p>
+        <p className="mt-1 text-xs text-amber-600/70">{folderName}</p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={record.folder_id ?? ""}
+          disabled={moving}
+          onChange={(e) => handleMove(e.target.value || null)}
+          aria-label="移动到文件夹"
+          className="rounded-lg border border-amber-200 bg-white px-2 py-1.5 text-sm text-amber-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:opacity-50"
+        >
+          <option value="">未分类</option>
+          {folders.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => remove(record.id)}
+          aria-label="删除"
+          title="删除"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-amber-400 transition hover:bg-amber-100 hover:text-red-500"
+        >
+          ×
+        </button>
+      </div>
+      {moveError && <p className="w-full text-xs text-red-600 sm:text-right">{moveError}</p>}
+    </div>
+  );
+}

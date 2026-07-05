@@ -6,6 +6,9 @@ import { BaseChart } from "../../components/BaseChart";
 import { ChartModeToggle, type ChartMode } from "../../components/ChartModeToggle";
 import { DateInput } from "../../components/DateInput";
 import { PageGate } from "../../components/PageGate";
+import { BlueprintRecordPicker } from "../../components/archive/BlueprintRecordPicker";
+import { useAuth } from "../../components/AuthProvider";
+import { type Blueprint } from "../../components/BlueprintsProvider";
 import { computeChart, cumulativeChart, shadowChart } from "../../lib/numerology";
 import { usePersistedState } from "../../lib/usePersistedState";
 
@@ -13,12 +16,25 @@ const inputClass =
   "w-full rounded-md border border-amber-200 px-3 py-2 text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200";
 const labelClass = "text-left text-sm font-medium text-zinc-700";
 
+type HeshuDate = {
+  id: number;
+  value: string;
+  enabled: boolean;
+  name?: string;
+};
+
+function personLabel(entry: HeshuDate, index: number) {
+  return entry.name ?? `Person ${String.fromCharCode(65 + index)}`;
+}
+
 // 合数 page — input section with a variable number of birth dates (starts with 2).
 export default function HeshuPage() {
-  const [dates, setDates] = usePersistedState("life-chart-heshu-dates", [
+  const { user, openModal } = useAuth();
+  const [dates, setDates] = usePersistedState<HeshuDate[]>("life-chart-heshu-dates", [
     { id: 0, value: "", enabled: true },
     { id: 1, value: "", enabled: true },
   ]);
+  const [pickerOpen, setPickerOpen] = useState(false);
   // 个人蓝图 vs 影子数字 (every number doubled) for all diagrams in this section.
   const [mode, setMode] = useState<ChartMode>("normal");
 
@@ -31,8 +47,26 @@ export default function HeshuPage() {
       ...prev,
       { id: prev.reduce((max, d) => Math.max(max, d.id), -1) + 1, value: "", enabled: true },
     ]);
+  const addFromRecord = (record: Blueprint) =>
+    setDates((prev) => [
+      ...prev,
+      {
+        id: prev.reduce((max, d) => Math.max(max, d.id), -1) + 1,
+        value: record.birth_date,
+        enabled: true,
+        name: record.name,
+      },
+    ]);
   const remove = (id: number) =>
     setDates((prev) => (prev.length > 1 ? prev.filter((d) => d.id !== id) : prev));
+
+  const openPicker = () => {
+    if (!user) {
+      openModal();
+      return;
+    }
+    setPickerOpen(true);
+  };
 
   const charts = dates.map((d) => computeChart(d.value));
   // Only people whose toggle is on contribute to the cumulative (合数) chart.
@@ -66,7 +100,7 @@ export default function HeshuPage() {
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <label htmlFor={`birthDate-${d.id}`} className={labelClass}>
-                  Person {String.fromCharCode(65 + i)}
+                  {personLabel(d, i)}
                 </label>
                 <DateInput
                   id={`birthDate-${d.id}`}
@@ -87,13 +121,27 @@ export default function HeshuPage() {
               </button>
             </div>
           ))}
-          <button
-            type="button"
-            onClick={add}
-            className="mt-1 self-start rounded-lg border border-dashed border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-900"
-          >
-            + 添加出生日期
-          </button>
+          <div className="mt-1 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={add}
+              className="rounded-lg border border-dashed border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-900"
+            >
+              + 添加出生日期
+            </button>
+            <button
+              type="button"
+              onClick={openPicker}
+              className="rounded-lg border border-dashed border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-900"
+            >
+              + 从存档添加
+            </button>
+          </div>
+          <BlueprintRecordPicker
+            open={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+            onSelect={addFromRecord}
+          />
         </div>
       </Section>
     </div>
@@ -106,7 +154,7 @@ export default function HeshuPage() {
             d.enabled === false ? null : (
               <div key={d.id} className="flex flex-col">
                 <h3 className="mb-2 text-base font-semibold text-amber-900">
-                  Person {String.fromCharCode(65 + i)}
+                  {personLabel(d, i)}
                 </h3>
                 <div className={`@container w-full ${mode === "shadow" ? "chart-shadow" : ""}`}>
                   <BaseChart chart={mode === "shadow" ? shadowChart(charts[i]) : charts[i]} />
