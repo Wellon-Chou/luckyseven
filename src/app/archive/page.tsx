@@ -27,7 +27,7 @@ export default function ArchivePage() {
               </button>
             </div>
           ) : (
-            <div className="mt-2 flex flex-col gap-6 lg:flex-row lg:gap-8">
+            <div className="archive-page mt-2 flex flex-col gap-6 lg:flex-row lg:gap-8">
               <aside className="w-full shrink-0 rounded-xl border border-amber-200/70 bg-amber-50/40 p-4 lg:w-52">
                 <FolderList selected={selectedFolder} onSelect={setSelectedFolder} />
               </aside>

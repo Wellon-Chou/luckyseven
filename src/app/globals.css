@@ -277,3 +277,9 @@ div .title-container {
     border-color: #e5d6b0 !important;
   }
 }
+
+/* Archive: folder rename/delete icons stay visible on touch (no hover). */
+.archive-page .group > button[aria-label="重命名"],
+.archive-page .group > button[aria-label="删除"] {
+  opacity: 1;
+}

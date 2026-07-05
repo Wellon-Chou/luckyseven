@@ -50,13 +50,13 @@ export function BlueprintRecordCard({ record, folders }: BlueprintRecordCardProp
         <p className="mt-1 text-xs text-amber-600/70">{folderName}</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
         <select
           value={record.folder_id ?? ""}
           disabled={moving}
           onChange={(e) => handleMove(e.target.value || null)}
           aria-label="移动到文件夹"
-          className="rounded-lg border border-amber-200 bg-white px-2 py-1.5 text-sm text-amber-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:opacity-50"
+          className="min-w-0 max-w-full flex-1 rounded-lg border border-amber-200 bg-white px-2 py-1.5 text-sm text-amber-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:opacity-50 sm:flex-none sm:max-w-none"
         >
           <option value="">未分类</option>
           {folders.map((f) => (
@@ -70,7 +70,7 @@ export function BlueprintRecordCard({ record, folders }: BlueprintRecordCardProp
           onClick={() => remove(record.id)}
           aria-label="删除"
           title="删除"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-amber-400 transition hover:bg-amber-100 hover:text-red-500"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-amber-400 transition hover:bg-amber-100 hover:text-red-500"
         >
           ×
         </button>
