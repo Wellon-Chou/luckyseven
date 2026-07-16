@@ -80,7 +80,7 @@ export function SectionNav() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const router = useRouter();
   const { user, openModal } = useAuth();
-  const { setName, setbirthDatePersonalDiagram } = useInput();
+  const { setNamePersonalDiagram, setbirthDatePersonalDiagram } = useInput();
   const { records, folders, loading: recordsLoading, refresh, refreshFolders } = useBlueprints();
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -119,7 +119,7 @@ export function SectionNav() {
   };
 
   const loadRecord = (rec: Blueprint) => {
-    setName(rec.name);
+    setNamePersonalDiagram(rec.name);
     setbirthDatePersonalDiagram(rec.birth_date);
     setLockPopup(null);
     router.push("/");

@@ -20,8 +20,8 @@ import { DirectionsSection } from "../components/sections/DirectionsSection";
 // chart (personalChart), independent from the 八大行星 page.
 export default function Home() {
   const {
-    name,
-    setName,
+    namePersonalDiagram,
+    setNamePersonalDiagram,
     birthDatePersonalDiagram,
     setbirthDatePersonalDiagram,
     phone,
@@ -32,6 +32,7 @@ export default function Home() {
   } = useInput();
 
   const birthDate = birthDatePersonalDiagram;
+  const name = namePersonalDiagram;
   const chart = personalChart;
   const { user, openModal } = useAuth();
   const { level, loading: levelLoading } = useAccessLevel();
@@ -108,7 +109,7 @@ export default function Home() {
         <InputSection
           fields={["name", "birthDate"]}
           name={name}
-          onNameChange={setName}
+          onNameChange={setNamePersonalDiagram}
           birthDate={birthDatePersonalDiagram}
           onBirthDateChange={setbirthDatePersonalDiagram}
           phone={phone}

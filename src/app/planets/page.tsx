@@ -41,8 +41,8 @@ function SourceCard({
 
 export default function PlanetsPage() {
   const {
-    name,
-    setName,
+    namePhoneNumber,
+    setNamePhoneNumber,
     birthDatePhoneNumber,
     setbirthDatePhoneNumber,
     phone,
@@ -53,6 +53,8 @@ export default function PlanetsPage() {
     personalChart,
   } = useInput();
 
+  const name = namePhoneNumber;
+  const setName = setNamePhoneNumber;
   const birthDate = birthDatePhoneNumber;
   const setBirthDate = setbirthDatePhoneNumber;
   const chart = phoneNumberChart;

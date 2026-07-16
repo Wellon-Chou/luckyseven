@@ -240,7 +240,7 @@ export function computeChart(birthDate: string): Chart {
   };
 }
 
-// The numbers shown in the 数字故事 section: the root number + the unique story
+// The numbers shown in the 人生蓝图 section
 // numbers, with the two single-digit ones expanded to 2 digits:
 //   • rootNumber  →  rootNumber + reducedBirthDate[0]
 //   • middle[1]   →  middle[1]  + middle[1]   (the only single-digit story entry)

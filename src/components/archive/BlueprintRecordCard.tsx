@@ -12,13 +12,13 @@ type BlueprintRecordCardProps = {
 
 export function BlueprintRecordCard({ record, folders }: BlueprintRecordCardProps) {
   const router = useRouter();
-  const { setName, setbirthDatePersonalDiagram } = useInput();
+  const { setNamePersonalDiagram, setbirthDatePersonalDiagram } = useInput();
   const { remove, moveToFolder } = useBlueprints();
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
 
   const loadRecord = () => {
-    setName(record.name);
+    setNamePersonalDiagram(record.name);
     setbirthDatePersonalDiagram(record.birth_date);
     router.push("/");
   };
