@@ -242,14 +242,14 @@ export function computeChart(birthDate: string): Chart {
 
 // The numbers shown in the 数字故事 section: the root number + the unique story
 // numbers, with the two single-digit ones expanded to 2 digits:
-//   • rootNumber  →  rootNumber + middle[0]
+//   • rootNumber  →  rootNumber + reducedBirthDate[0]
 //   • middle[1]   →  middle[1]  + middle[1]   (the only single-digit story entry)
 // Returns [] until a birth date produces real numbers.
 export function blueprintNumbers(chart: Chart): string[] {
-  const { rootNumber, middle, storyNumbers } = chart;
+  const { rootNumber, reducedBirthDate, storyNumbers } = chart;
   if (Number.isNaN(rootNumber)) return [];
   return [
-    `${rootNumber}${middle[0]}`,
+    `${rootNumber}${reducedBirthDate[0]}`,
     ...storyNumbers.map((n) => (n.length === 1 ? `${n}${n}` : n)),
   ];
 }

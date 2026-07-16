@@ -43,6 +43,43 @@ const BLUEPRINT_COLUMNS = "id, name, birth_date, created_at, folder_id";
 const FOLDER_COLUMNS = "id, name, created_at";
 const MAX_RECORDS = 10;
 
+// Transport-level fetch failures (dropped WiFi, backgrounded tab, TLS hiccup)
+// surface as "Load failed" in Safari/WebKit and "Failed to fetch" in Chrome.
+// These are transient — the request never reached the server — so retrying
+// almost always succeeds. Real errors (RLS, validation, "存档已满") are NOT
+// transient and must surface immediately without retry.
+function isTransientError(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return /load failed|failed to fetch|network\s*error|the network connection was lost/i.test(
+    message,
+  );
+}
+
+// Retry a Supabase call while it keeps failing with a transient network error.
+// supabase-js normally returns the fetch failure in `{ error }` rather than
+// throwing, but a raw TypeError can still escape, so we handle both. Only the
+// final result (success or a real/persistent error) is returned to the caller.
+async function withRetry<T extends { error: { message: string } | null }>(
+  run: () => PromiseLike<T>,
+  tries = 3,
+): Promise<T> {
+  let last: T | undefined;
+  for (let attempt = 0; attempt < tries; attempt++) {
+    if (attempt > 0) {
+      // Exponential backoff: 400ms, then 800ms.
+      await new Promise((resolve) => setTimeout(resolve, 400 * 2 ** (attempt - 1)));
+    }
+    try {
+      last = await run();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      last = { error: { message } } as T;
+    }
+    if (!last.error || !isTransientError(last.error.message)) return last;
+  }
+  return last as T;
+}
+
 export function BlueprintsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { isAdmin } = useAccessLevel();
@@ -58,10 +95,12 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
       return;
     }
     setFoldersLoading(true);
-    const { data, error } = await supabase
-      .from("blueprint_folders")
-      .select(FOLDER_COLUMNS)
-      .order("created_at", { ascending: true });
+    const { data, error } = await withRetry(() =>
+      supabase!
+        .from("blueprint_folders")
+        .select(FOLDER_COLUMNS)
+        .order("created_at", { ascending: true }),
+    );
     if (error) setError(error.message);
     else setFolders((data ?? []) as BlueprintFolder[]);
     setFoldersLoading(false);
@@ -75,15 +114,16 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
 
-    let query = supabase
-      .from("blueprints")
-      .select(BLUEPRINT_COLUMNS)
-      .order("created_at", { ascending: false });
-    if (!isAdmin) {
-      query = query.limit(MAX_RECORDS);
-    }
-
-    const { data, error } = await query;
+    const { data, error } = await withRetry(() => {
+      let query = supabase!
+        .from("blueprints")
+        .select(BLUEPRINT_COLUMNS)
+        .order("created_at", { ascending: false });
+      if (!isAdmin) {
+        query = query.limit(MAX_RECORDS);
+      }
+      return query;
+    });
     if (error) setError(error.message);
     else setRecords((data ?? []) as Blueprint[]);
     setLoading(false);
@@ -116,11 +156,13 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
         birth_date: birthDate,
       };
       if (folderId !== undefined) payload.folder_id = folderId;
-      const { data, error } = await supabase
-        .from("blueprints")
-        .insert(payload)
-        .select(BLUEPRINT_COLUMNS)
-        .single();
+      const { data, error } = await withRetry(() =>
+        supabase!
+          .from("blueprints")
+          .insert(payload)
+          .select(BLUEPRINT_COLUMNS)
+          .single(),
+      );
       if (error) return { error: error.message };
       if (data) setRecords((prev) => [data as Blueprint, ...prev]);
       return { error: null };
@@ -132,12 +174,14 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
     if (!supabase) return { error: "服务尚未配置。" };
     const payload: { birth_date: string; folder_id?: string | null } = { birth_date: birthDate };
     if (folderId !== undefined) payload.folder_id = folderId;
-    const { data, error } = await supabase
-      .from("blueprints")
-      .update(payload)
-      .eq("id", id)
-      .select(BLUEPRINT_COLUMNS)
-      .single();
+    const { data, error } = await withRetry(() =>
+      supabase!
+        .from("blueprints")
+        .update(payload)
+        .eq("id", id)
+        .select(BLUEPRINT_COLUMNS)
+        .single(),
+    );
     if (error) return { error: error.message };
     if (data) setRecords((prev) => prev.map((r) => (r.id === id ? (data as Blueprint) : r)));
     return { error: null };
@@ -145,7 +189,9 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
 
   const remove = useCallback(async (id: string) => {
     if (!supabase) return;
-    const { error } = await supabase.from("blueprints").delete().eq("id", id);
+    const { error } = await withRetry(() =>
+      supabase!.from("blueprints").delete().eq("id", id),
+    );
     if (!error) setRecords((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
@@ -155,11 +201,13 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
       if (!user) return { error: "请先登录。" };
       const trimmed = name.trim();
       if (!trimmed) return { error: "请输入文件夹名称。" };
-      const { data, error } = await supabase
-        .from("blueprint_folders")
-        .insert({ user_id: user.id, name: trimmed })
-        .select(FOLDER_COLUMNS)
-        .single();
+      const { data, error } = await withRetry(() =>
+        supabase!
+          .from("blueprint_folders")
+          .insert({ user_id: user.id, name: trimmed })
+          .select(FOLDER_COLUMNS)
+          .single(),
+      );
       if (error) return { error: error.message };
       const folder = data as BlueprintFolder;
       setFolders((prev) => [...prev, folder]);
@@ -172,12 +220,14 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
     if (!supabase) return { error: "服务尚未配置。" };
     const trimmed = name.trim();
     if (!trimmed) return { error: "请输入文件夹名称。" };
-    const { data, error } = await supabase
-      .from("blueprint_folders")
-      .update({ name: trimmed })
-      .eq("id", id)
-      .select(FOLDER_COLUMNS)
-      .single();
+    const { data, error } = await withRetry(() =>
+      supabase!
+        .from("blueprint_folders")
+        .update({ name: trimmed })
+        .eq("id", id)
+        .select(FOLDER_COLUMNS)
+        .single(),
+    );
     if (error) return { error: error.message };
     if (data) setFolders((prev) => prev.map((f) => (f.id === id ? (data as BlueprintFolder) : f)));
     return { error: null };
@@ -185,7 +235,9 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
 
   const deleteFolder = useCallback(async (id: string) => {
     if (!supabase) return { error: "服务尚未配置。" };
-    const { error } = await supabase.from("blueprint_folders").delete().eq("id", id);
+    const { error } = await withRetry(() =>
+      supabase!.from("blueprint_folders").delete().eq("id", id),
+    );
     if (error) return { error: error.message };
     setFolders((prev) => prev.filter((f) => f.id !== id));
     setRecords((prev) => prev.map((r) => (r.folder_id === id ? { ...r, folder_id: null } : r)));
@@ -194,12 +246,14 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
 
   const moveToFolder = useCallback(async (id: string, folderId: string | null) => {
     if (!supabase) return { error: "服务尚未配置。" };
-    const { data, error } = await supabase
-      .from("blueprints")
-      .update({ folder_id: folderId })
-      .eq("id", id)
-      .select(BLUEPRINT_COLUMNS)
-      .single();
+    const { data, error } = await withRetry(() =>
+      supabase!
+        .from("blueprints")
+        .update({ folder_id: folderId })
+        .eq("id", id)
+        .select(BLUEPRINT_COLUMNS)
+        .single(),
+    );
     if (error) return { error: error.message };
     if (data) setRecords((prev) => prev.map((r) => (r.id === id ? (data as Blueprint) : r)));
     return { error: null };
