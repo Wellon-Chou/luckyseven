@@ -61,11 +61,73 @@ async function saveBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// html2canvas's SVG painter mis-places inline SVGs that CSS scales UP: it offsets
+// the content and then clips it at the element box, which cut the right-hand third
+// off the 五行加数 diagram (viewBox 352 stretched to 576px). SVGs that scale down
+// — the 命盘 chart, the icons — paint correctly, so only up-scaled ones are
+// rasterised here and swapped for a plain <img> at clone time.
+type RasterisedSvg = { png: string; width: number; height: number };
+
+async function rasteriseUpscaledSvgs(root: HTMLElement) {
+  const map = new Map<string, RasterisedSvg>();
+  const rootStyle = getComputedStyle(document.documentElement);
+  const svgs = Array.from(root.querySelectorAll("svg"));
+
+  await Promise.all(
+    svgs.map(async (svg, i) => {
+      const box = (svg.getAttribute("viewBox") ?? "").split(/[\s,]+/).map(Number);
+      const rect = svg.getBoundingClientRect();
+      if (box.length !== 4 || !box[2] || !rect.width || !rect.height) return;
+      if (rect.width / box[2] <= 1) return; // not up-scaled → html2canvas is fine
+
+      // A standalone SVG gets none of the page's CSS, so pin the rendered size,
+      // carry the font over, and resolve the custom properties the strokes and
+      // fills reference (var(--chart-line) etc. would otherwise paint black).
+      const clone = svg.cloneNode(true) as SVGSVGElement;
+      clone.setAttribute("width", String(rect.width));
+      clone.setAttribute("height", String(rect.height));
+      clone.removeAttribute("class");
+      clone.setAttribute("font-family", getComputedStyle(svg).fontFamily);
+      const xml = new XMLSerializer()
+        .serializeToString(clone)
+        .replace(/var\((--[\w-]+)\)/g, (_, name: string) =>
+          rootStyle.getPropertyValue(name).trim() || "#000",
+        );
+
+      const img = new Image();
+      try {
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error("svg rasterise failed"));
+          img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+        });
+      } catch {
+        return; // leave it to html2canvas rather than dropping the diagram
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(rect.width * 2); // match the capture scale
+      canvas.height = Math.ceil(rect.height * 2);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      const id = `svg-${i}`;
+      svg.setAttribute("data-pdf-svg", id);
+      map.set(id, { png: canvas.toDataURL("image/png"), width: rect.width, height: rect.height });
+    }),
+  );
+
+  return map;
+}
+
 export async function saveReportPdf(root: HTMLElement, filename: string) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import("html2canvas-pro"),
     import("jspdf"),
   ]);
+
+  const svgPngs = await rasteriseUpscaledSvgs(root);
 
   const capture = (el: HTMLElement) =>
     html2canvas(el, {
@@ -76,6 +138,22 @@ export async function saveReportPdf(root: HTMLElement, filename: string) {
         // Drop anything hidden in print (the save + AI generate buttons) and the
         // calendar icon / hidden date overlay.
         doc.querySelectorAll(".print\\:hidden, [data-no-export]").forEach((n) => n.remove());
+        // Swap pre-rasterised SVGs for their PNG. The size is pinned in px (not
+        // left to w-full/h-auto) so the box is correct even before the image
+        // decodes — otherwise the row collapses and the layout shifts.
+        doc.querySelectorAll("[data-pdf-svg]").forEach((n) => {
+          const entry = svgPngs.get(n.getAttribute("data-pdf-svg") ?? "");
+          if (!entry) return;
+          const image = doc.createElement("img");
+          image.src = entry.png;
+          image.width = Math.round(entry.width);
+          image.height = Math.round(entry.height);
+          image.style.width = `${entry.width}px`;
+          image.style.height = `${entry.height}px`;
+          image.style.display = "block";
+          image.style.margin = "0 auto"; // the SVGs it replaces are mx-auto
+          n.replaceWith(image);
+        });
         // Always export the diagram in 个人蓝图 mode: drop the shadow-mode chart and
         // reveal the hidden normal-mode copy (if shadow is showing on screen).
         doc.querySelectorAll(".export-hide").forEach((n) => n.remove());
@@ -208,11 +286,20 @@ export async function saveReportPdf(root: HTMLElement, filename: string) {
   };
 
   // Flow the header then every section continuously; breaks happen only where a
-  // block would be cut.
+  // block would be cut. A section tagged `data-pdf-break-before` additionally
+  // forces a fresh page, so a page can group an exact set of sections.
   const header = root.querySelector("header");
   if (header) await place(header as HTMLElement);
   const sections = Array.from(root.querySelectorAll<HTMLElement>('[id^="sec-"]'));
-  for (const sec of sections) await place(sec);
+  try {
+    for (const sec of sections) {
+      // Guard on pageStarted so a break on an already-empty page can't emit a blank one.
+      if (sec.hasAttribute("data-pdf-break-before") && pageStarted) newPage();
+      await place(sec);
+    }
+  } finally {
+    root.querySelectorAll("[data-pdf-svg]").forEach((n) => n.removeAttribute("data-pdf-svg"));
+  }
 
   await saveBlob(pdf.output("blob"), filename);
 }

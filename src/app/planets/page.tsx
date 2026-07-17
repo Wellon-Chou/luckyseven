@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useInput } from "../../components/InputProvider";
 import { useAuth } from "../../components/AuthProvider";
 import { usePhoneArchives } from "../../components/PhoneArchivesProvider";
+import { saveReportPdf } from "../../lib/savePdf";
 import { PageGate } from "../../components/PageGate";
 import { InputSection } from "../../components/sections/InputSection";
 import {
@@ -65,6 +66,7 @@ export default function PlanetsPage() {
 
   const { user, openModal } = useAuth();
   const { save, update, records, folders } = usePhoneArchives();
+  const [saving, setSaving] = useState(false);
   const [savingRecord, setSavingRecord] = useState(false);
   const [recordNotice, setRecordNotice] = useState<string | null>(null);
   const [saveFolderId, setSaveFolderId] = useState<string>("");
@@ -87,6 +89,23 @@ export default function PlanetsPage() {
         : !ic.trim()
           ? "请先输入身份证号码"
           : null;
+
+  // Export the whole page as a PDF. Unlike 个人蓝图 there's no AI summary to
+  // generate first, so this just captures what's on screen.
+  const handleSavePdf = async () => {
+    const el = document.querySelector("main");
+    if (!el) return;
+    setSaving(true);
+    try {
+      const safe = (name || "命盘").replace(/[\\/:*?"<>|]/g, "").trim();
+      await saveReportPdf(el as HTMLElement, `${safe}-电话号码.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert("保存失败，请重试。");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Save the current name + 出生日期 + 身份证号码 to 电话号码存档.
   const handleSaveRecord = async () => {
@@ -139,8 +158,8 @@ export default function PlanetsPage() {
         />
       </div>
 
-      {/* 3 — 身份证: IC | table | tally */}
-      <div id="sec-planets-ic" className="w-full scroll-mt-24">
+      {/* 3 — 身份证: IC | table | tally. Starts PDF page 2. */}
+      <div id="sec-planets-ic" data-pdf-break-before className="w-full scroll-mt-24">
         <PlanetGroupSection
           title="身份证号码"
           tableTitle="身份证八大行星"
@@ -175,8 +194,8 @@ export default function PlanetsPage() {
         />
       </div>
 
-      {/* 5 — 电话号码: phone input + table | tally + 五行加数 */}
-      <div id="sec-planets-phone" className="w-full scroll-mt-24">
+      {/* 5 — 电话号码: phone input + table | tally + 五行加数. Starts PDF page 3. */}
+      <div id="sec-planets-phone" data-pdf-break-before className="w-full scroll-mt-24">
         <PlanetGroupSection
           title="电话号码八大行星"
           top={
@@ -201,30 +220,52 @@ export default function PlanetsPage() {
         />
       </div>
 
-      {/* Save 姓名 + 出生日期 + 身份证号码 to 电话号码存档 (tagged to the account). */}
+      {/* Export as PDF + save 姓名 + 出生日期 + 身份证号码 to 电话号码存档. */}
       <div className="flex flex-col items-center gap-3 pt-2 print:hidden">
-        <button
-          type="button"
-          onClick={handleSaveRecord}
-          disabled={!user || missingFields || savingRecord || alreadySaved}
-          title={
-            !user
-              ? "请先登录"
-              : alreadySaved
-                ? "该姓名已存档"
-                : canUpdate
-                  ? "更新此姓名的出生日期与身份证号码"
-                  : missingFields
-                    ? "请先输入姓名、出生日期和身份证号码"
-                    : undefined
-          }
-          className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-6 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-900 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-          </svg>
-          {savingRecord ? "保存中…" : alreadySaved ? "已存档" : canUpdate ? "更新" : "保存记录"}
-        </button>
+        <div className="flex flex-wrap justify-center gap-3">
+          <button
+            type="button"
+            onClick={handleSavePdf}
+            disabled={!user || !name || !birthDate || saving}
+            title={
+              !user
+                ? "请先登录"
+                : !name || !birthDate
+                  ? "请先输入姓名和出生日期"
+                  : undefined
+            }
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-amber-500"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <path d="M7 10l5 5 5-5" />
+              <path d="M12 15V3" />
+            </svg>
+            {saving ? "保存中…" : "保存为 PDF"}
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveRecord}
+            disabled={!user || missingFields || savingRecord || alreadySaved}
+            title={
+              !user
+                ? "请先登录"
+                : alreadySaved
+                  ? "该姓名已存档"
+                  : canUpdate
+                    ? "更新此姓名的出生日期与身份证号码"
+                    : missingFields
+                      ? "请先输入姓名、出生日期和身份证号码"
+                      : undefined
+            }
+            className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-6 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-900 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+            {savingRecord ? "保存中…" : alreadySaved ? "已存档" : canUpdate ? "更新" : "保存记录"}
+          </button>
+        </div>
         {user && folders.length > 0 && (
           <label className="inline-flex items-center gap-2 text-sm text-amber-700">
             <span>保存到文件夹</span>
