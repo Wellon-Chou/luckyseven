@@ -12,7 +12,7 @@ type PhoneRecordCardProps = {
 
 export function PhoneRecordCard({ record, folders }: PhoneRecordCardProps) {
   const router = useRouter();
-  const { setNamePhoneNumber, setbirthDatePhoneNumber, setIc } = useInput();
+  const { setNamePhoneNumber, setbirthDatePhoneNumber, setIc, setPhone } = useInput();
   const { remove, moveToFolder } = usePhoneArchives();
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
@@ -22,6 +22,7 @@ export function PhoneRecordCard({ record, folders }: PhoneRecordCardProps) {
     setNamePhoneNumber(record.name);
     setbirthDatePhoneNumber(record.birth_date);
     setIc(record.ic);
+    setPhone(record.phone);
     router.push("/planets");
   };
 
@@ -51,6 +52,9 @@ export function PhoneRecordCard({ record, folders }: PhoneRecordCardProps) {
         <p className="mt-0.5 font-mono text-sm tabular-nums text-amber-700/70">{record.birth_date}</p>
         <p className="mt-0.5 truncate font-mono text-sm text-amber-700/70">
           身份证：{record.ic || "–"}
+        </p>
+        <p className="mt-0.5 truncate font-mono text-sm text-amber-700/70">
+          电话：{record.phone || "–"}
         </p>
         <p className="mt-1 text-xs text-amber-600/70">{folderName}</p>
       </div>

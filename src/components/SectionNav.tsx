@@ -89,6 +89,7 @@ export function SectionNav() {
     setNamePhoneNumber,
     setbirthDatePhoneNumber,
     setIc,
+    setPhone,
   } = useInput();
   const { records, folders, loading: recordsLoading, refresh, refreshFolders } = useBlueprints();
   const {
@@ -176,12 +177,13 @@ export function SectionNav() {
     router.push("/");
   };
 
-  // 电话号码存档 records populate the 电话号码 page's fields (including 身份证号码)
-  // and land the user on that page.
+  // 电话号码存档 records populate the 电话号码 page's fields (including 身份证号码
+  // and 电话号码) and land the user on that page.
   const loadPhoneRecord = (rec: PhoneArchive) => {
     setNamePhoneNumber(rec.name);
     setbirthDatePhoneNumber(rec.birth_date);
     setIc(rec.ic);
+    setPhone(rec.phone);
     setLockPopup(null);
     router.push("/planets");
   };
@@ -505,7 +507,7 @@ export function SectionNav() {
                                           <button
                                             type="button"
                                             onClick={() => loadPhoneRecord(rec)}
-                                            title={`${rec.birth_date}${rec.ic ? ` · ${rec.ic}` : ""}`}
+                                            title={[rec.birth_date, rec.ic, rec.phone].filter(Boolean).join(" · ")}
                                             className="block w-full truncate py-1 text-left text-sm text-amber-700/80 transition hover:font-semibold hover:text-amber-900"
                                           >
                                             {rec.name}

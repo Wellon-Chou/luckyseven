@@ -71,15 +71,16 @@ export default function PlanetsPage() {
   const [recordNotice, setRecordNotice] = useState<string | null>(null);
   const [saveFolderId, setSaveFolderId] = useState<string>("");
 
-  // Match a saved record by name. Same 出生日期 + 身份证号码 → already saved
-  // (disabled); either differs → offer to update it ("更新"); no match → save new.
+  // Match a saved record by name. Same 出生日期 + 身份证号码 + 电话号码 → already
+  // saved (disabled); any differs → offer to update it ("更新"); no match → save new.
   const trimmedName = name.trim();
   const match = trimmedName ? records.find((r) => r.name.trim() === trimmedName) : undefined;
-  const alreadySaved = !!match && match.birth_date === birthDate && match.ic === ic;
+  const alreadySaved =
+    !!match && match.birth_date === birthDate && match.ic === ic && match.phone === phone;
   const canUpdate = !!match && !alreadySaved;
-  const missingFields = !name.trim() || !birthDate || !ic.trim();
-  // Hint under the button: login → birth date → name → IC. (The tier is already
-  // handled by PageGate, which won't render this page below tier 2.)
+  const missingFields = !name.trim() || !birthDate || !ic.trim() || !phone.trim();
+  // Hint under the button: login → birth date → name → IC → phone. (The tier is
+  // already handled by PageGate, which won't render this page below tier 2.)
   const inputHint = !user
     ? "请先登录以使用此功能"
     : !birthDate
@@ -88,7 +89,9 @@ export default function PlanetsPage() {
         ? "请先输入姓名"
         : !ic.trim()
           ? "请先输入身份证号码"
-          : null;
+          : !phone.trim()
+            ? "请先输入电话号码"
+            : null;
 
   // Export the whole page as a PDF. Unlike 个人蓝图 there's no AI summary to
   // generate first, so this just captures what's on screen.
@@ -107,7 +110,7 @@ export default function PlanetsPage() {
     }
   };
 
-  // Save the current name + 出生日期 + 身份证号码 to 电话号码存档.
+  // Save the current name + 出生日期 + 身份证号码 + 电话号码 to 电话号码存档.
   const handleSaveRecord = async () => {
     if (!user) {
       openModal();
@@ -117,8 +120,8 @@ export default function PlanetsPage() {
     setRecordNotice(null);
     const folderId = saveFolderId || null;
     const { error } = match
-      ? await update(match.id, birthDate, ic, folderId)
-      : await save(name, birthDate, ic, folderId);
+      ? await update(match.id, { birthDate, ic, phone }, folderId)
+      : await save({ name, birthDate, ic, phone }, folderId);
     setSavingRecord(false);
     // On success the button disables itself (name now in the list); only surface
     // errors.
@@ -253,9 +256,9 @@ export default function PlanetsPage() {
                 : alreadySaved
                   ? "该姓名已存档"
                   : canUpdate
-                    ? "更新此姓名的出生日期与身份证号码"
+                    ? "更新此姓名的出生日期、身份证号码与电话号码"
                     : missingFields
-                      ? "请先输入姓名、出生日期和身份证号码"
+                      ? "请先输入姓名、出生日期、身份证号码和电话号码"
                       : undefined
             }
             className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-6 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-900 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"

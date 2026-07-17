@@ -12,16 +12,26 @@ export type PhoneArchiveFolder = {
   created_at: string;
 };
 
-// A saved 电话号码存档 record — name + birth date + 身份证号码, tagged to the
-// logged-in account. Mirrors Blueprint but carries the IC as well, and loads
-// into the 电话号码 page rather than 个人蓝图.
+// A saved 电话号码存档 record — name + birth date + 身份证号码 + 电话号码, tagged
+// to the logged-in account. Mirrors Blueprint but carries the IC and phone as
+// well, and loads into the 电话号码 page rather than 个人蓝图.
 export type PhoneArchive = {
   id: string;
   name: string;
   birth_date: string; // ISO "YYYY-MM-DD"
   ic: string;
+  phone: string;
   created_at: string;
   folder_id: string | null;
+};
+
+// The editable fields of a record. Passed as an object because `ic` and `phone`
+// are both free-text strings — positionally they'd be trivial to transpose.
+export type PhoneArchiveInput = {
+  name: string;
+  birthDate: string;
+  ic: string;
+  phone: string;
 };
 
 type PhoneArchivesContextValue = {
@@ -33,16 +43,10 @@ type PhoneArchivesContextValue = {
   refresh: () => Promise<void>;
   refreshFolders: () => Promise<void>;
   loadByFolder: (folderId: string | null) => PhoneArchive[];
-  save: (
-    name: string,
-    birthDate: string,
-    ic: string,
-    folderId?: string | null,
-  ) => Promise<{ error: string | null }>;
+  save: (input: PhoneArchiveInput, folderId?: string | null) => Promise<{ error: string | null }>;
   update: (
     id: string,
-    birthDate: string,
-    ic: string,
+    input: Omit<PhoneArchiveInput, "name">,
     folderId?: string | null,
   ) => Promise<{ error: string | null }>;
   remove: (id: string) => Promise<void>;
@@ -53,7 +57,7 @@ type PhoneArchivesContextValue = {
 };
 
 const PhoneArchivesContext = createContext<PhoneArchivesContextValue | null>(null);
-const ARCHIVE_COLUMNS = "id, name, birth_date, ic, created_at, folder_id";
+const ARCHIVE_COLUMNS = "id, name, birth_date, ic, phone, created_at, folder_id";
 const FOLDER_COLUMNS = "id, name, created_at";
 const MAX_RECORDS = 10;
 
@@ -121,7 +125,7 @@ export function PhoneArchivesProvider({ children }: { children: ReactNode }) {
   );
 
   const save = useCallback(
-    async (name: string, birthDate: string, ic: string, folderId?: string | null) => {
+    async (input: PhoneArchiveInput, folderId?: string | null) => {
       if (!supabase) return { error: "服务尚未配置。" };
       if (!user) return { error: "请先登录。" };
       if (!isAdmin && records.length >= MAX_RECORDS) {
@@ -132,12 +136,14 @@ export function PhoneArchivesProvider({ children }: { children: ReactNode }) {
         name: string;
         birth_date: string;
         ic: string;
+        phone: string;
         folder_id?: string | null;
       } = {
         user_id: user.id,
-        name,
-        birth_date: birthDate,
-        ic,
+        name: input.name,
+        birth_date: input.birthDate,
+        ic: input.ic,
+        phone: input.phone,
       };
       if (folderId !== undefined) payload.folder_id = folderId;
       const { data, error } = await withRetry(() =>
@@ -151,11 +157,12 @@ export function PhoneArchivesProvider({ children }: { children: ReactNode }) {
   );
 
   const update = useCallback(
-    async (id: string, birthDate: string, ic: string, folderId?: string | null) => {
+    async (id: string, input: Omit<PhoneArchiveInput, "name">, folderId?: string | null) => {
       if (!supabase) return { error: "服务尚未配置。" };
-      const payload: { birth_date: string; ic: string; folder_id?: string | null } = {
-        birth_date: birthDate,
-        ic,
+      const payload: { birth_date: string; ic: string; phone: string; folder_id?: string | null } = {
+        birth_date: input.birthDate,
+        ic: input.ic,
+        phone: input.phone,
       };
       if (folderId !== undefined) payload.folder_id = folderId;
       const { data, error } = await withRetry(() =>

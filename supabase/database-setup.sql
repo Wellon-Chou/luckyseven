@@ -219,9 +219,14 @@ create table if not exists public.phone_archives (
   name       text        not null,
   birth_date text        not null,                 -- ISO "YYYY-MM-DD"
   ic         text        not null default '',      -- 身份证号码
+  phone      text        not null default '',      -- 电话号码
   folder_id  uuid        references public.phone_archive_folders(id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+-- Added after the table shipped, so existing installs pick it up on re-run.
+alter table public.phone_archives
+  add column if not exists phone text not null default '';
 
 create index if not exists phone_archives_user_id_idx
   on public.phone_archives (user_id);
