@@ -6,6 +6,7 @@ import { AccessProvider } from "../components/AccessProvider";
 import { ContentProvider } from "../components/ContentProvider";
 import { InputProvider } from "../components/InputProvider";
 import { BlueprintsProvider } from "../components/BlueprintsProvider";
+import { PhoneArchivesProvider } from "../components/PhoneArchivesProvider";
 import { AppShell } from "../components/AppShell";
 
 const geistSans = Geist({
@@ -68,9 +69,11 @@ export default function RootLayout({
           <AccessProvider>
             <ContentProvider>
               <BlueprintsProvider>
-                <InputProvider>
-                  <AppShell>{children}</AppShell>
-                </InputProvider>
+                <PhoneArchivesProvider>
+                  <InputProvider>
+                    <AppShell>{children}</AppShell>
+                  </InputProvider>
+                </PhoneArchivesProvider>
               </BlueprintsProvider>
             </ContentProvider>
           </AccessProvider>

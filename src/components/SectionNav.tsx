@@ -8,6 +8,7 @@ import { useStartSubscribe } from "./useStartSubscribe";
 import { useAuth } from "./AuthProvider";
 import { useInput } from "./InputProvider";
 import { useBlueprints, type Blueprint } from "./BlueprintsProvider";
+import { usePhoneArchives, type PhoneArchive } from "./PhoneArchivesProvider";
 
 // Pages (top-level nav) and the in-page section anchors for each.
 // minLevel = subscription tier needed to open the page (0 free · 1 standard · 2 premium).
@@ -73,6 +74,8 @@ export function SectionNav() {
   // 蓝图存档 needs a paid plan (tier ≥ 1). "Still loading" → treat as unlocked so
   // paying users don't see a flash of a locked tab.
   const archiveLocked = !loading && level < 1;
+  // 电话号码存档 loads into the 电话号码 page, so it needs that page's tier (≥ 2).
+  const phoneArchiveLocked = !loading && level < 2;
   // 记忆训练 needs the 至尊 plan (tier ≥ 3).
   const memoryLocked = !loading && level < 3;
 
@@ -80,10 +83,25 @@ export function SectionNav() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const router = useRouter();
   const { user, openModal } = useAuth();
-  const { setNamePersonalDiagram, setbirthDatePersonalDiagram } = useInput();
+  const {
+    setNamePersonalDiagram,
+    setbirthDatePersonalDiagram,
+    setNamePhoneNumber,
+    setbirthDatePhoneNumber,
+    setIc,
+  } = useInput();
   const { records, folders, loading: recordsLoading, refresh, refreshFolders } = useBlueprints();
+  const {
+    records: phoneRecords,
+    folders: phoneFolders,
+    loading: phoneRecordsLoading,
+    refresh: refreshPhone,
+    refreshFolders: refreshPhoneFolders,
+  } = usePhoneArchives();
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [phoneArchiveOpen, setPhoneArchiveOpen] = useState(false);
+  const [collapsedPhoneGroups, setCollapsedPhoneGroups] = useState<Set<string>>(new Set());
 
   const uncategorizedRecords = useMemo(
     () => records.filter((r) => r.folder_id === null),
@@ -99,6 +117,20 @@ export function SectionNav() {
   );
   const hasRecords = records.length > 0;
 
+  const uncategorizedPhoneRecords = useMemo(
+    () => phoneRecords.filter((r) => r.folder_id === null),
+    [phoneRecords],
+  );
+  const phoneFolderGroups = useMemo(
+    () =>
+      phoneFolders.map((folder) => ({
+        folder,
+        records: phoneRecords.filter((r) => r.folder_id === folder.id),
+      })),
+    [phoneFolders, phoneRecords],
+  );
+  const hasPhoneRecords = phoneRecords.length > 0;
+
   const toggleArchive = () => {
     setLockPopup(null);
     const next = !archiveOpen;
@@ -106,6 +138,16 @@ export function SectionNav() {
     if (next && user) {
       refresh();
       refreshFolders();
+    }
+  };
+
+  const togglePhoneArchive = () => {
+    setLockPopup(null);
+    const next = !phoneArchiveOpen;
+    setPhoneArchiveOpen(next);
+    if (next && user) {
+      refreshPhone();
+      refreshPhoneFolders();
     }
   };
 
@@ -118,11 +160,30 @@ export function SectionNav() {
     });
   };
 
+  const togglePhoneGroup = (key: string) => {
+    setCollapsedPhoneGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   const loadRecord = (rec: Blueprint) => {
     setNamePersonalDiagram(rec.name);
     setbirthDatePersonalDiagram(rec.birth_date);
     setLockPopup(null);
     router.push("/");
+  };
+
+  // 电话号码存档 records populate the 电话号码 page's fields (including 身份证号码)
+  // and land the user on that page.
+  const loadPhoneRecord = (rec: PhoneArchive) => {
+    setNamePhoneNumber(rec.name);
+    setbirthDatePhoneNumber(rec.birth_date);
+    setIc(rec.ic);
+    setLockPopup(null);
+    router.push("/planets");
   };
 
   const Chevron = ({ open }: { open: boolean }) => (
@@ -145,6 +206,7 @@ export function SectionNav() {
     setLockPopup(null);
     if (pathname === "/memory") setMemoryOpen(true);
     if (pathname === "/archive") setArchiveOpen(true);
+    if (pathname === "/phone-archive") setPhoneArchiveOpen(true);
   }, [pathname]);
 
   // Collapse when clicking outside the nav — but not when dragging (e.g. text
@@ -367,7 +429,134 @@ export function SectionNav() {
                             : "border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900"
                         }`}
                       >
-                        管理蓝图
+                        管理蓝图存档
+                      </Link>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* 电话号码存档 — saved name + 出生日期 + 身份证号码, grouped by folder.
+                Clicking a record loads it into the 电话号码 page. */}
+            <div>
+              {phoneArchiveLocked ? (
+                <button
+                  type="button"
+                  onClick={(e) => onLockedClick("/phone-archive", e)}
+                  title="订阅后解锁"
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-amber-100/60 ${
+                    lockPopup?.href === "/phone-archive" ? "bg-amber-100/60 text-amber-800/70" : "text-amber-800/40"
+                  }`}
+                >
+                  <span>电话号码存档</span>
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={togglePhoneArchive}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                      phoneArchiveOpen || pathname === "/phone-archive"
+                        ? "bg-amber-100/60 text-amber-900"
+                        : "text-amber-800 hover:bg-amber-100 hover:text-amber-900"
+                    }`}
+                  >
+                    <span>电话号码存档</span>
+                    <Chevron open={phoneArchiveOpen} />
+                  </button>
+
+                  {phoneArchiveOpen && (
+                    <div className="mb-1 mt-1.5 pl-2">
+                      {!user ? (
+                        <button
+                          type="button"
+                          onClick={() => openModal()}
+                          className="py-1 text-left text-sm text-amber-700/80 underline underline-offset-2 transition hover:text-amber-900"
+                        >
+                          请先登录以查看存档
+                        </button>
+                      ) : phoneRecordsLoading ? (
+                        <p className="py-1 text-sm text-amber-700/60">加载中…</p>
+                      ) : !hasPhoneRecords ? (
+                        <p className="py-1 text-sm text-amber-700/60">暂无存档</p>
+                      ) : (
+                        <div className="space-y-1 border-l-2 border-amber-200 pl-3">
+                          {phoneFolderGroups.map(
+                            ({ folder, records: groupRecords }) =>
+                              groupRecords.length > 0 && (
+                                <div key={folder.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePhoneGroup(folder.id)}
+                                    className="flex w-full items-center justify-between gap-1 py-1 text-left text-xs font-semibold uppercase tracking-wider text-amber-700 transition hover:text-amber-900"
+                                  >
+                                    <span className="min-w-0 truncate">{folder.name}</span>
+                                    <Chevron open={!collapsedPhoneGroups.has(folder.id)} />
+                                  </button>
+                                  {!collapsedPhoneGroups.has(folder.id) && (
+                                    <ul className="space-y-0.5 pb-1 pl-1">
+                                      {groupRecords.map((rec) => (
+                                        <li key={rec.id}>
+                                          <button
+                                            type="button"
+                                            onClick={() => loadPhoneRecord(rec)}
+                                            title={`${rec.birth_date}${rec.ic ? ` · ${rec.ic}` : ""}`}
+                                            className="block w-full truncate py-1 text-left text-sm text-amber-700/80 transition hover:font-semibold hover:text-amber-900"
+                                          >
+                                            {rec.name}
+                                          </button>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
+                              ),
+                          )}
+                          {uncategorizedPhoneRecords.length > 0 && (
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => togglePhoneGroup("uncategorized")}
+                                className="flex w-full items-center justify-between gap-1 py-1 text-left text-xs font-semibold uppercase tracking-wider text-amber-700 transition hover:text-amber-900"
+                              >
+                                <span>未分类</span>
+                                <Chevron open={!collapsedPhoneGroups.has("uncategorized")} />
+                              </button>
+                              {!collapsedPhoneGroups.has("uncategorized") && (
+                                <ul className="space-y-0.5 pb-1 pl-1">
+                                  {uncategorizedPhoneRecords.map((rec) => (
+                                    <li key={rec.id}>
+                                      <button
+                                        type="button"
+                                        onClick={() => loadPhoneRecord(rec)}
+                                        title={`${rec.birth_date}${rec.ic ? ` · ${rec.ic}` : ""}`}
+                                        className="block w-full truncate py-1 text-left text-sm text-amber-700/80 transition hover:font-semibold hover:text-amber-900"
+                                      >
+                                        {rec.name}
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <Link
+                        href="/phone-archive"
+                        onClick={() => setLockPopup(null)}
+                        className={`mt-2 block w-full rounded-lg px-3 py-2 text-center text-sm font-semibold transition ${
+                          pathname === "/phone-archive"
+                            ? "bg-amber-500 text-white shadow-sm"
+                            : "border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900"
+                        }`}
+                      >
+                        管理电话号码存档
                       </Link>
                     </div>
                   )}

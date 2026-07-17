@@ -172,6 +172,91 @@ create index if not exists blueprints_user_id_idx
 create index if not exists blueprints_folder_id_idx
   on public.blueprints (folder_id);
 
+-- ── 7c. PHONE ARCHIVE FOLDERS: folders for 电话号码存档 ───────────────────────
+create table if not exists public.phone_archive_folders (
+  id         uuid        primary key default gen_random_uuid(),
+  user_id    uuid        not null references auth.users(id) on delete cascade default auth.uid(),
+  name       text        not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists phone_archive_folders_user_id_idx
+  on public.phone_archive_folders (user_id);
+
+alter table public.phone_archive_folders enable row level security;
+
+drop policy if exists "read own phone archive folders" on public.phone_archive_folders;
+create policy "read own phone archive folders"
+  on public.phone_archive_folders for select
+  to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "insert own phone archive folders" on public.phone_archive_folders;
+create policy "insert own phone archive folders"
+  on public.phone_archive_folders for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "update own phone archive folders" on public.phone_archive_folders;
+create policy "update own phone archive folders"
+  on public.phone_archive_folders for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+drop policy if exists "delete own phone archive folders" on public.phone_archive_folders;
+create policy "delete own phone archive folders"
+  on public.phone_archive_folders for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+-- ── 7d. PHONE ARCHIVES: 电话号码存档 — name + birth date + 身份证号码 ──────────
+-- Separate from `blueprints`: these records carry the IC and load into the
+-- 电话号码 page rather than 个人蓝图.
+create table if not exists public.phone_archives (
+  id         uuid        primary key default gen_random_uuid(),
+  user_id    uuid        not null references auth.users(id) on delete cascade default auth.uid(),
+  name       text        not null,
+  birth_date text        not null,                 -- ISO "YYYY-MM-DD"
+  ic         text        not null default '',      -- 身份证号码
+  folder_id  uuid        references public.phone_archive_folders(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists phone_archives_user_id_idx
+  on public.phone_archives (user_id);
+
+create index if not exists phone_archives_folder_id_idx
+  on public.phone_archives (folder_id);
+
+alter table public.phone_archives enable row level security;
+
+-- A user may only read / add / update / delete their OWN saved records.
+drop policy if exists "read own phone archives" on public.phone_archives;
+create policy "read own phone archives"
+  on public.phone_archives for select
+  to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "insert own phone archives" on public.phone_archives;
+create policy "insert own phone archives"
+  on public.phone_archives for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "update own phone archives" on public.phone_archives;
+create policy "update own phone archives"
+  on public.phone_archives for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+drop policy if exists "delete own phone archives" on public.phone_archives;
+create policy "delete own phone archives"
+  on public.phone_archives for delete
+  to authenticated
+  using (user_id = auth.uid());
+
 -- ── 8. AI SUMMARY CACHE (总体故事 is a free feature — no login, no cap) ───────
 -- Global cache of generated summaries, keyed by a hash of the source material,
 -- so repeat requests are free.

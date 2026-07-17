@@ -6,49 +6,62 @@ import { withRetry } from "../lib/retry";
 import { useAccessLevel } from "./AccessProvider";
 import { useAuth } from "./AuthProvider";
 
-export type BlueprintFolder = {
+export type PhoneArchiveFolder = {
   id: string;
   name: string;
   created_at: string;
 };
 
-// A saved 蓝图存档 record — a name + birth date tagged to the logged-in account.
-export type Blueprint = {
+// A saved 电话号码存档 record — name + birth date + 身份证号码, tagged to the
+// logged-in account. Mirrors Blueprint but carries the IC as well, and loads
+// into the 电话号码 page rather than 个人蓝图.
+export type PhoneArchive = {
   id: string;
   name: string;
   birth_date: string; // ISO "YYYY-MM-DD"
+  ic: string;
   created_at: string;
   folder_id: string | null;
 };
 
-type BlueprintsContextValue = {
-  records: Blueprint[];
-  folders: BlueprintFolder[];
+type PhoneArchivesContextValue = {
+  records: PhoneArchive[];
+  folders: PhoneArchiveFolder[];
   loading: boolean;
   foldersLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
   refreshFolders: () => Promise<void>;
-  loadByFolder: (folderId: string | null) => Blueprint[];
-  save: (name: string, birthDate: string, folderId?: string | null) => Promise<{ error: string | null }>;
-  update: (id: string, birthDate: string, folderId?: string | null) => Promise<{ error: string | null }>;
+  loadByFolder: (folderId: string | null) => PhoneArchive[];
+  save: (
+    name: string,
+    birthDate: string,
+    ic: string,
+    folderId?: string | null,
+  ) => Promise<{ error: string | null }>;
+  update: (
+    id: string,
+    birthDate: string,
+    ic: string,
+    folderId?: string | null,
+  ) => Promise<{ error: string | null }>;
   remove: (id: string) => Promise<void>;
-  createFolder: (name: string) => Promise<{ error: string | null; folder?: BlueprintFolder }>;
+  createFolder: (name: string) => Promise<{ error: string | null; folder?: PhoneArchiveFolder }>;
   renameFolder: (id: string, name: string) => Promise<{ error: string | null }>;
   deleteFolder: (id: string) => Promise<{ error: string | null }>;
   moveToFolder: (id: string, folderId: string | null) => Promise<{ error: string | null }>;
 };
 
-const BlueprintsContext = createContext<BlueprintsContextValue | null>(null);
-const BLUEPRINT_COLUMNS = "id, name, birth_date, created_at, folder_id";
+const PhoneArchivesContext = createContext<PhoneArchivesContextValue | null>(null);
+const ARCHIVE_COLUMNS = "id, name, birth_date, ic, created_at, folder_id";
 const FOLDER_COLUMNS = "id, name, created_at";
 const MAX_RECORDS = 10;
 
-export function BlueprintsProvider({ children }: { children: ReactNode }) {
+export function PhoneArchivesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { isAdmin } = useAccessLevel();
-  const [records, setRecords] = useState<Blueprint[]>([]);
-  const [folders, setFolders] = useState<BlueprintFolder[]>([]);
+  const [records, setRecords] = useState<PhoneArchive[]>([]);
+  const [folders, setFolders] = useState<PhoneArchiveFolder[]>([]);
   const [loading, setLoading] = useState(false);
   const [foldersLoading, setFoldersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,12 +74,12 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
     setFoldersLoading(true);
     const { data, error } = await withRetry(() =>
       supabase!
-        .from("blueprint_folders")
+        .from("phone_archive_folders")
         .select(FOLDER_COLUMNS)
         .order("created_at", { ascending: true }),
     );
     if (error) setError(error.message);
-    else setFolders((data ?? []) as BlueprintFolder[]);
+    else setFolders((data ?? []) as PhoneArchiveFolder[]);
     setFoldersLoading(false);
   }, [user]);
 
@@ -80,8 +93,8 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
 
     const { data, error } = await withRetry(() => {
       let query = supabase!
-        .from("blueprints")
-        .select(BLUEPRINT_COLUMNS)
+        .from("phone_archives")
+        .select(ARCHIVE_COLUMNS)
         .order("created_at", { ascending: false });
       if (!isAdmin) {
         query = query.limit(MAX_RECORDS);
@@ -89,7 +102,7 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
       return query;
     });
     if (error) setError(error.message);
-    else setRecords((data ?? []) as Blueprint[]);
+    else setRecords((data ?? []) as PhoneArchive[]);
     setLoading(false);
   }, [user, isAdmin]);
 
@@ -108,53 +121,62 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
   );
 
   const save = useCallback(
-    async (name: string, birthDate: string, folderId?: string | null) => {
+    async (name: string, birthDate: string, ic: string, folderId?: string | null) => {
       if (!supabase) return { error: "服务尚未配置。" };
       if (!user) return { error: "请先登录。" };
       if (!isAdmin && records.length >= MAX_RECORDS) {
         return { error: `存档已满（最多 ${MAX_RECORDS} 条），请先删除。` };
       }
-      const payload: { user_id: string; name: string; birth_date: string; folder_id?: string | null } = {
+      const payload: {
+        user_id: string;
+        name: string;
+        birth_date: string;
+        ic: string;
+        folder_id?: string | null;
+      } = {
         user_id: user.id,
         name,
         birth_date: birthDate,
+        ic,
       };
       if (folderId !== undefined) payload.folder_id = folderId;
       const { data, error } = await withRetry(() =>
-        supabase!
-          .from("blueprints")
-          .insert(payload)
-          .select(BLUEPRINT_COLUMNS)
-          .single(),
+        supabase!.from("phone_archives").insert(payload).select(ARCHIVE_COLUMNS).single(),
       );
       if (error) return { error: error.message };
-      if (data) setRecords((prev) => [data as Blueprint, ...prev]);
+      if (data) setRecords((prev) => [data as PhoneArchive, ...prev]);
       return { error: null };
     },
     [user, records.length, isAdmin],
   );
 
-  const update = useCallback(async (id: string, birthDate: string, folderId?: string | null) => {
-    if (!supabase) return { error: "服务尚未配置。" };
-    const payload: { birth_date: string; folder_id?: string | null } = { birth_date: birthDate };
-    if (folderId !== undefined) payload.folder_id = folderId;
-    const { data, error } = await withRetry(() =>
-      supabase!
-        .from("blueprints")
-        .update(payload)
-        .eq("id", id)
-        .select(BLUEPRINT_COLUMNS)
-        .single(),
-    );
-    if (error) return { error: error.message };
-    if (data) setRecords((prev) => prev.map((r) => (r.id === id ? (data as Blueprint) : r)));
-    return { error: null };
-  }, []);
+  const update = useCallback(
+    async (id: string, birthDate: string, ic: string, folderId?: string | null) => {
+      if (!supabase) return { error: "服务尚未配置。" };
+      const payload: { birth_date: string; ic: string; folder_id?: string | null } = {
+        birth_date: birthDate,
+        ic,
+      };
+      if (folderId !== undefined) payload.folder_id = folderId;
+      const { data, error } = await withRetry(() =>
+        supabase!
+          .from("phone_archives")
+          .update(payload)
+          .eq("id", id)
+          .select(ARCHIVE_COLUMNS)
+          .single(),
+      );
+      if (error) return { error: error.message };
+      if (data) setRecords((prev) => prev.map((r) => (r.id === id ? (data as PhoneArchive) : r)));
+      return { error: null };
+    },
+    [],
+  );
 
   const remove = useCallback(async (id: string) => {
     if (!supabase) return;
     const { error } = await withRetry(() =>
-      supabase!.from("blueprints").delete().eq("id", id),
+      supabase!.from("phone_archives").delete().eq("id", id),
     );
     if (!error) setRecords((prev) => prev.filter((r) => r.id !== id));
   }, []);
@@ -167,13 +189,13 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
       if (!trimmed) return { error: "请输入文件夹名称。" };
       const { data, error } = await withRetry(() =>
         supabase!
-          .from("blueprint_folders")
+          .from("phone_archive_folders")
           .insert({ user_id: user.id, name: trimmed })
           .select(FOLDER_COLUMNS)
           .single(),
       );
       if (error) return { error: error.message };
-      const folder = data as BlueprintFolder;
+      const folder = data as PhoneArchiveFolder;
       setFolders((prev) => [...prev, folder]);
       return { error: null, folder };
     },
@@ -186,21 +208,22 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
     if (!trimmed) return { error: "请输入文件夹名称。" };
     const { data, error } = await withRetry(() =>
       supabase!
-        .from("blueprint_folders")
+        .from("phone_archive_folders")
         .update({ name: trimmed })
         .eq("id", id)
         .select(FOLDER_COLUMNS)
         .single(),
     );
     if (error) return { error: error.message };
-    if (data) setFolders((prev) => prev.map((f) => (f.id === id ? (data as BlueprintFolder) : f)));
+    if (data)
+      setFolders((prev) => prev.map((f) => (f.id === id ? (data as PhoneArchiveFolder) : f)));
     return { error: null };
   }, []);
 
   const deleteFolder = useCallback(async (id: string) => {
     if (!supabase) return { error: "服务尚未配置。" };
     const { error } = await withRetry(() =>
-      supabase!.from("blueprint_folders").delete().eq("id", id),
+      supabase!.from("phone_archive_folders").delete().eq("id", id),
     );
     if (error) return { error: error.message };
     setFolders((prev) => prev.filter((f) => f.id !== id));
@@ -212,19 +235,19 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
     if (!supabase) return { error: "服务尚未配置。" };
     const { data, error } = await withRetry(() =>
       supabase!
-        .from("blueprints")
+        .from("phone_archives")
         .update({ folder_id: folderId })
         .eq("id", id)
-        .select(BLUEPRINT_COLUMNS)
+        .select(ARCHIVE_COLUMNS)
         .single(),
     );
     if (error) return { error: error.message };
-    if (data) setRecords((prev) => prev.map((r) => (r.id === id ? (data as Blueprint) : r)));
+    if (data) setRecords((prev) => prev.map((r) => (r.id === id ? (data as PhoneArchive) : r)));
     return { error: null };
   }, []);
 
   return (
-    <BlueprintsContext.Provider
+    <PhoneArchivesContext.Provider
       value={{
         records,
         folders,
@@ -244,12 +267,12 @@ export function BlueprintsProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </BlueprintsContext.Provider>
+    </PhoneArchivesContext.Provider>
   );
 }
 
-export function useBlueprints() {
-  const ctx = useContext(BlueprintsContext);
-  if (!ctx) throw new Error("useBlueprints must be used within a BlueprintsProvider");
+export function usePhoneArchives() {
+  const ctx = useContext(PhoneArchivesContext);
+  if (!ctx) throw new Error("usePhoneArchives must be used within a PhoneArchivesProvider");
   return ctx;
 }

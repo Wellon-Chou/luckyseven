@@ -4,19 +4,21 @@ import { useState } from "react";
 import { Section } from "../../components/Section";
 import { PageGate } from "../../components/PageGate";
 import { useAuth } from "../../components/AuthProvider";
-import { useBlueprints } from "../../components/BlueprintsProvider";
+import { usePhoneArchives } from "../../components/PhoneArchivesProvider";
 import { FolderList, type FolderSelection } from "../../components/archive/FolderList";
-import { BlueprintRecordList } from "../../components/archive/BlueprintRecordList";
+import { PhoneRecordList } from "../../components/archive/PhoneRecordList";
 
-export default function ArchivePage() {
+// 电话号码存档 — mirrors /archive, but its records carry the 身份证号码 and load
+// into the 电话号码 page. Gated at tier 2 to match that page.
+export default function PhoneArchivePage() {
   const { user, openModal } = useAuth();
-  const { folders, foldersLoading, createFolder, renameFolder, deleteFolder } = useBlueprints();
+  const { folders, foldersLoading, createFolder, renameFolder, deleteFolder } = usePhoneArchives();
   const [selectedFolder, setSelectedFolder] = useState<FolderSelection>("all");
 
   return (
-    <PageGate minLevel={1}>
-      <div id="sec-archive" className="w-full scroll-mt-24">
-        <Section title="蓝图存档">
+    <PageGate minLevel={2}>
+      <div id="sec-phone-archive" className="w-full scroll-mt-24">
+        <Section title="电话号码存档">
           {!user ? (
             <div className="flex flex-col items-center gap-4 py-8">
               <p className="text-sm text-amber-700/80">请先登录以查看和管理存档。</p>
@@ -42,7 +44,7 @@ export default function ArchivePage() {
                 />
               </aside>
               <div className="min-w-0 flex-1">
-                <BlueprintRecordList selectedFolder={selectedFolder} />
+                <PhoneRecordList selectedFolder={selectedFolder} />
               </div>
             </div>
           )}

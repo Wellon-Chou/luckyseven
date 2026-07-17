@@ -1,6 +1,9 @@
 'use client';
 
+import { useState } from "react";
 import { useInput } from "../../components/InputProvider";
+import { useAuth } from "../../components/AuthProvider";
+import { usePhoneArchives } from "../../components/PhoneArchivesProvider";
 import { PageGate } from "../../components/PageGate";
 import { InputSection } from "../../components/sections/InputSection";
 import {
@@ -59,6 +62,49 @@ export default function PlanetsPage() {
   const setBirthDate = setbirthDatePhoneNumber;
   const chart = phoneNumberChart;
   const icNumber = icToNumber(ic);
+
+  const { user, openModal } = useAuth();
+  const { save, update, records, folders } = usePhoneArchives();
+  const [savingRecord, setSavingRecord] = useState(false);
+  const [recordNotice, setRecordNotice] = useState<string | null>(null);
+  const [saveFolderId, setSaveFolderId] = useState<string>("");
+
+  // Match a saved record by name. Same 出生日期 + 身份证号码 → already saved
+  // (disabled); either differs → offer to update it ("更新"); no match → save new.
+  const trimmedName = name.trim();
+  const match = trimmedName ? records.find((r) => r.name.trim() === trimmedName) : undefined;
+  const alreadySaved = !!match && match.birth_date === birthDate && match.ic === ic;
+  const canUpdate = !!match && !alreadySaved;
+  const missingFields = !name.trim() || !birthDate || !ic.trim();
+  // Hint under the button: login → birth date → name → IC. (The tier is already
+  // handled by PageGate, which won't render this page below tier 2.)
+  const inputHint = !user
+    ? "请先登录以使用此功能"
+    : !birthDate
+      ? "请先输入出生日期"
+      : !name.trim()
+        ? "请先输入姓名"
+        : !ic.trim()
+          ? "请先输入身份证号码"
+          : null;
+
+  // Save the current name + 出生日期 + 身份证号码 to 电话号码存档.
+  const handleSaveRecord = async () => {
+    if (!user) {
+      openModal();
+      return;
+    }
+    setSavingRecord(true);
+    setRecordNotice(null);
+    const folderId = saveFolderId || null;
+    const { error } = match
+      ? await update(match.id, birthDate, ic, folderId)
+      : await save(name, birthDate, ic, folderId);
+    setSavingRecord(false);
+    // On success the button disables itself (name now in the list); only surface
+    // errors.
+    setRecordNotice(error ? `保存失败：${error}` : null);
+  };
 
   return (
     <PageGate minLevel={2}>
@@ -154,6 +200,59 @@ export default function PlanetsPage() {
           footer={<FiveElementAdditionDiagram title="五行加数" phone={phone} />}
         />
       </div>
+
+      {/* Save 姓名 + 出生日期 + 身份证号码 to 电话号码存档 (tagged to the account). */}
+      <div className="flex flex-col items-center gap-3 pt-2 print:hidden">
+        <button
+          type="button"
+          onClick={handleSaveRecord}
+          disabled={!user || missingFields || savingRecord || alreadySaved}
+          title={
+            !user
+              ? "请先登录"
+              : alreadySaved
+                ? "该姓名已存档"
+                : canUpdate
+                  ? "更新此姓名的出生日期与身份证号码"
+                  : missingFields
+                    ? "请先输入姓名、出生日期和身份证号码"
+                    : undefined
+          }
+          className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-6 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-900 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          </svg>
+          {savingRecord ? "保存中…" : alreadySaved ? "已存档" : canUpdate ? "更新" : "保存记录"}
+        </button>
+        {user && folders.length > 0 && (
+          <label className="inline-flex items-center gap-2 text-sm text-amber-700">
+            <span>保存到文件夹</span>
+            <select
+              value={saveFolderId}
+              onChange={(e) => setSaveFolderId(e.target.value)}
+              className="rounded-lg border border-amber-200 bg-white px-2 py-1.5 text-sm text-amber-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+            >
+              <option value="">未分类</option>
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      {inputHint && (
+        <p className="pt-2 text-center text-xs font-medium text-red-600 print:hidden">
+          {inputHint}
+        </p>
+      )}
+      {recordNotice && (
+        <p className="pt-2 text-center text-sm font-medium text-amber-700 print:hidden">
+          {recordNotice}
+        </p>
+      )}
     </PageGate>
   );
 }

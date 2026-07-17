@@ -1,23 +1,40 @@
 'use client';
 
 import { useState } from "react";
-import { useBlueprints, type BlueprintFolder } from "../BlueprintsProvider";
 import { FolderForm } from "./FolderForm";
 
 export type FolderSelection = "all" | string;
 
+// Structural shape shared by BlueprintFolder and PhoneArchiveFolder, so this
+// list renders either archive's folders.
+export type ArchiveFolder = { id: string; name: string; created_at: string };
+
 type FolderListProps = {
   selected: FolderSelection;
   onSelect: (id: FolderSelection) => void;
+  // Folder data + operations come from whichever archive provider owns them
+  // (蓝图存档 → useBlueprints, 电话号码存档 → usePhoneArchives).
+  folders: ArchiveFolder[];
+  foldersLoading: boolean;
+  createFolder: (name: string) => Promise<{ error: string | null }>;
+  renameFolder: (id: string, name: string) => Promise<{ error: string | null }>;
+  deleteFolder: (id: string) => Promise<{ error: string | null }>;
 };
 
-export function FolderList({ selected, onSelect }: FolderListProps) {
-  const { folders, foldersLoading, createFolder, renameFolder, deleteFolder } = useBlueprints();
+export function FolderList({
+  selected,
+  onSelect,
+  folders,
+  foldersLoading,
+  createFolder,
+  renameFolder,
+  deleteFolder,
+}: FolderListProps) {
   const [creating, setCreating] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  const handleDelete = async (folder: BlueprintFolder) => {
+  const handleDelete = async (folder: ArchiveFolder) => {
     const { error } = await deleteFolder(folder.id);
     if (!error) {
       setDeleteConfirmId(null);
